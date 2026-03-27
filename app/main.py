@@ -14,8 +14,8 @@ app = Flask(__name__, static_folder=str(Path(__file__).resolve().parent.parent /
 # Retro Diffusion model identifiers on Replicate
 # Update these if model versions change: https://replicate.com/collections/pixel-art
 MODELS = {
-    "fast": "nerijs/retrodiffusion-rd-fast",
-    "plus": "nerijs/retrodiffusion-rd-plus",
+    "fast": "retro-diffusion/rd-fast",
+    "plus": "retro-diffusion/rd-plus",
 }
 
 # --- Content Safety ---
@@ -55,7 +55,7 @@ def wrap_prompt(user_prompt):
     """Wrap the user's prompt with safe framing for the model."""
     return (
         f"a cute, friendly pixel art sprite of {user_prompt.strip()}, "
-        "white background, no text, kid-friendly, cheerful, colorful, 32x32 pixels"
+        "white background, no text, kid-friendly, cheerful, colorful, 64x64 pixels"
     )
 
 
@@ -116,8 +116,8 @@ def generate():
             MODELS[model_choice],
             input={
                 "prompt": safe_prompt,
-                "width": 32,
-                "height": 32,
+                "width": 64,
+                "height": 64,
             },
         )
 
@@ -132,7 +132,8 @@ def generate():
             "prompt_used": safe_prompt,
         })
 
-    except Exception:
+    except Exception as e:
+        print(f"Replicate error: {e}")
         return jsonify({
             "error": "Our sprite machine is taking a nap! Try again in a moment."
         }), 500
