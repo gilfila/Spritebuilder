@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprite Builder!</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Sprite Builder!</h1>
+            <p class="subtitle">Create your own pixel art with AI</p>
+        </header>
+
+        <main>
+            <section class="prompt-section">
+                <label for="prompt-input">What should your sprite look like?</label>
+                <input
+                    type="text"
+                    id="prompt-input"
+                    placeholder="A happy cat..."
+                    maxlength="200"
+                    autocomplete="off"
+                >
+
+                <div class="idea-buttons">
+                    <p class="idea-label">Or pick an idea:</p>
+                    <div class="idea-grid">
+                        <button class="idea-btn" data-prompt="a happy cat">&#128049; Happy Cat</button>
+                        <button class="idea-btn" data-prompt="a brave knight">&#9876;&#65039; Brave Knight</button>
+                        <button class="idea-btn" data-prompt="a funny robot">&#129302; Funny Robot</button>
+                        <button class="idea-btn" data-prompt="a magic unicorn">&#129412; Magic Unicorn</button>
+                        <button class="idea-btn" data-prompt="a friendly dragon">&#128009; Friendly Dragon</button>
+                        <button class="idea-btn" data-prompt="a cool spaceship">&#128640; Cool Spaceship</button>
+                    </div>
+                </div>
+
+                <button id="generate-btn" class="generate-btn">
+                    &#10024; Create My Sprite!
+                </button>
+            </section>
+
+            <div id="error-msg" class="error-msg" hidden></div>
+
+            <section id="loading" class="loading" hidden>
+                <div class="spinner"></div>
+                <p class="loading-text">Creating your sprite...</p>
+            </section>
+
+            <section id="result" class="result" hidden>
+                <div class="sprite-frame">
+                    <img id="sprite-img" alt="Your generated sprite" width="256" height="256">
+                </div>
+                <div class="result-actions">
+                    <button id="save-btn" class="action-btn save-btn">&#128190; Save Sprite</button>
+                    <button id="reset-btn" class="action-btn reset-btn">&#127912; Make Another!</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Made for Tiger Scouts &#9889;</p>
+        </footer>
+    </div>
+
+    <script src="/script.js"></script>
+</body>
+</html>
