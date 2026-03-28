@@ -116,8 +116,11 @@ def generate():
             MODELS[model_choice],
             input={
                 "prompt": safe_prompt,
+                "style": "game_asset",
                 "width": 64,
                 "height": 64,
+                "num_images": 1,
+                "remove_bg": True,
             },
         )
 
@@ -133,7 +136,8 @@ def generate():
         })
 
     except Exception as e:
-        print(f"Replicate error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             "error": "Our sprite machine is taking a nap! Try again in a moment."
         }), 500
