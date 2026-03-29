@@ -211,10 +211,11 @@ h1 {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
-#sprite-img {
+#sprite-canvas {
     image-rendering: pixelated;
     image-rendering: crisp-edges;
     display: block;
+    max-width: 100%;
 }
 
 .result-actions {
