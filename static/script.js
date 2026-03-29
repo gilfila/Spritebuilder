@@ -3,8 +3,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var generateBtn = document.getElementById("generate-btn");
     var loadingSection = document.getElementById("loading");
     var resultSection = document.getElementById("result");
-    var canvas = document.getElementById("sprite-canvas");
-    var ctx = canvas.getContext("2d");
+    var spriteImg = document.getElementById("sprite-img");
     var saveBtn = document.getElementById("save-btn");
     var resetBtn = document.getElementById("reset-btn");
     var errorMsg = document.getElementById("error-msg");
@@ -56,7 +55,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     showError(result.data.error || "Something went wrong. Try again!");
                     return;
                 }
-                renderSprite(result.data.grid, result.data.size);
+                spriteImg.src = result.data.image_data;
                 showResult();
             })
             .catch(function () {
@@ -76,9 +75,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Save sprite as PNG
     saveBtn.addEventListener("click", function () {
+        var src = spriteImg.src;
+        if (!src) return;
+
         var link = document.createElement("a");
         link.download = "my-sprite.png";
-        link.href = canvas.toDataURL("image/png");
+        link.href = src;
         link.click();
     });
 
@@ -89,32 +91,6 @@ document.addEventListener("DOMContentLoaded", function () {
         hideError();
         promptInput.focus();
     });
-
-    function renderSprite(grid, size) {
-        var pixelSize = Math.floor(canvas.width / size);
-        canvas.width = pixelSize * size;
-        canvas.height = pixelSize * size;
-
-        // Clear with checkerboard to show transparency
-        for (var y = 0; y < size; y++) {
-            for (var x = 0; x < size; x++) {
-                var isLight = (x + y) % 2 === 0;
-                ctx.fillStyle = isLight ? "#f0f0f0" : "#dcdcdc";
-                ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
-            }
-        }
-
-        // Draw pixels
-        for (var y = 0; y < size; y++) {
-            for (var x = 0; x < size; x++) {
-                var color = grid[y][x];
-                if (color && color !== "#00000000" && color !== "transparent") {
-                    ctx.fillStyle = color;
-                    ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
-                }
-            }
-        }
-    }
 
     function setLoading(on) {
         generateBtn.disabled = on;
@@ -149,6 +125,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function hideResult() {
         resultSection.hidden = true;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        spriteImg.src = "";
     }
 });
