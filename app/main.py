@@ -13,7 +13,7 @@ load_dotenv()
 
 app = Flask(__name__, static_folder=str(Path(__file__).resolve().parent.parent / "static"), static_url_path="")
 
-client = anthropic.Anthropic()
+client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_KEY"))
 
 GRID_SIZE = 16
 SPRITE_PROMPT = """\
