@@ -15,7 +15,7 @@ app = Flask(__name__, static_folder=str(Path(__file__).resolve().parent.parent /
 
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_KEY"))
 
-GRID_SIZE = 8
+GRID_SIZE = 16
 
 SPRITE_PROMPT = """\
 You are an expert pixel art sprite generator. You output {size}x{size} pixel art sprites as JSON arrays.
@@ -24,33 +24,30 @@ RULES:
 - Output ONLY a JSON array of {size} arrays, each containing {size} hex color strings. No markdown, no explanation.
 - Use "_" for transparent/empty pixels (background).
 - Sprites must be cute, friendly, and kid-appropriate.
-- Use a LIMITED palette of 4-8 colors max for authentic pixel art.
+- Use a LIMITED palette of 5-10 colors max for authentic pixel art.
 - Most sprites should be roughly SYMMETRICAL left-to-right.
-- Center the sprite in the grid. Leave at least 1 row/column of "_" on each edge.
+- Center the sprite in the grid. Use "_" for empty space around the sprite.
 - Think about the SILHOUETTE first: outline with a dark color, then fill with 2-3 main colors, then add 1-2 highlight/shadow colors.
+- Every row MUST have exactly {size} entries.
 
 EXAMPLE — "a happy cat":
 [
-["_","_","#222","_","_","_","#222","_"],
-["_","#222","#F90","#222","#222","#F90","#222","_"],
-["_","#222","#FFF","#F90","#F90","#FFF","#222","_"],
-["_","#222","#F90","#222","#222","#F90","#222","_"],
-["_","_","#222","#F90","#F90","#222","_","_"],
-["_","_","#222","#F90","#F90","#222","_","_"],
-["_","_","_","#222","#222","_","_","_"],
-["_","_","_","_","_","_","_","_"]
-]
-
-EXAMPLE — "a blue robot":
-[
-["_","_","#555","#555","#555","#555","_","_"],
-["_","#555","#4AF","#555","#555","#4AF","#555","_"],
-["_","#555","#4AF","#4AF","#4AF","#4AF","#555","_"],
-["_","_","#555","#FFF","#FFF","#555","_","_"],
-["_","#555","#4AF","#4AF","#4AF","#4AF","#555","_"],
-["_","#555","#4AF","#555","#555","#4AF","#555","_"],
-["_","_","#555","_","_","#555","_","_"],
-["_","_","#555","_","_","#555","_","_"]
+["_","_","_","_","_","_","_","_","_","_","_","_","_","_","_","_"],
+["_","_","_","_","#222","#222","_","_","_","_","#222","#222","_","_","_","_"],
+["_","_","_","#222","#F90","#F90","#222","_","_","#222","#F90","#F90","#222","_","_","_"],
+["_","_","_","#222","#F90","#F90","#F90","#222","#222","#F90","#F90","#F90","#222","_","_","_"],
+["_","_","_","#222","#F90","#FFF","#F90","#F90","#F90","#F90","#FFF","#F90","#222","_","_","_"],
+["_","_","_","_","#222","#F90","#222","#F90","#F90","#222","#F90","#222","_","_","_","_"],
+["_","_","_","_","#222","#F90","#F90","#F90","#F90","#F90","#F90","#222","_","_","_","_"],
+["_","_","_","_","_","#222","#F90","#FBD","#FBD","#F90","#222","_","_","_","_","_"],
+["_","_","_","_","_","_","#222","#F90","#F90","#222","_","_","_","_","_","_"],
+["_","_","_","_","_","#222","#F90","#F90","#F90","#F90","#222","_","_","_","_","_"],
+["_","_","_","_","#222","#F90","#F90","#F90","#F90","#F90","#F90","#222","_","_","_","_"],
+["_","_","_","_","#222","#F90","#F90","#222","#222","#F90","#F90","#222","_","_","_","_"],
+["_","_","_","_","_","#222","#222","_","_","#222","#222","_","_","_","_","_"],
+["_","_","_","_","#222","#222","_","_","_","_","#222","#222","_","_","_","_"],
+["_","_","_","_","_","_","_","_","_","_","_","_","_","_","_","_"],
+["_","_","_","_","_","_","_","_","_","_","_","_","_","_","_","_"]
 ]
 
 Now generate a sprite for the user's description. Output ONLY the JSON array.\
@@ -130,7 +127,7 @@ def generate():
     try:
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=1024,
+            max_tokens=4096,
             system=SPRITE_PROMPT.format(size=GRID_SIZE),
             messages=[{"role": "user", "content": safe_description}],
         )
