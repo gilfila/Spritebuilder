@@ -15,18 +15,45 @@ app = Flask(__name__, static_folder=str(Path(__file__).resolve().parent.parent /
 
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_KEY"))
 
-GRID_SIZE = 16
-SPRITE_PROMPT = """\
-You are a pixel art sprite generator. Given a description, produce a {size}x{size} pixel art sprite \
-as a JSON array of arrays. Each cell is a hex color string like "#FF0000". \
-Use transparent pixels as "#00000000" for the background around the sprite.
+GRID_SIZE = 8
 
-Rules:
-- Output ONLY the JSON array, no markdown, no explanation, no code fences.
-- The sprite must be cute, friendly, colorful, and kid-appropriate.
-- Use a limited palette (8-12 colors max) for an authentic pixel art look.
-- Make the sprite recognizable and charming at {size}x{size}.
-- Center the sprite in the grid.
+SPRITE_PROMPT = """\
+You are an expert pixel art sprite generator. You output {size}x{size} pixel art sprites as JSON arrays.
+
+RULES:
+- Output ONLY a JSON array of {size} arrays, each containing {size} hex color strings. No markdown, no explanation.
+- Use "_" for transparent/empty pixels (background).
+- Sprites must be cute, friendly, and kid-appropriate.
+- Use a LIMITED palette of 4-8 colors max for authentic pixel art.
+- Most sprites should be roughly SYMMETRICAL left-to-right.
+- Center the sprite in the grid. Leave at least 1 row/column of "_" on each edge.
+- Think about the SILHOUETTE first: outline with a dark color, then fill with 2-3 main colors, then add 1-2 highlight/shadow colors.
+
+EXAMPLE — "a happy cat":
+[
+["_","_","#222","_","_","_","#222","_"],
+["_","#222","#F90","#222","#222","#F90","#222","_"],
+["_","#222","#FFF","#F90","#F90","#FFF","#222","_"],
+["_","#222","#F90","#222","#222","#F90","#222","_"],
+["_","_","#222","#F90","#F90","#222","_","_"],
+["_","_","#222","#F90","#F90","#222","_","_"],
+["_","_","_","#222","#222","_","_","_"],
+["_","_","_","_","_","_","_","_"]
+]
+
+EXAMPLE — "a blue robot":
+[
+["_","_","#555","#555","#555","#555","_","_"],
+["_","#555","#4AF","#555","#555","#4AF","#555","_"],
+["_","#555","#4AF","#4AF","#4AF","#4AF","#555","_"],
+["_","_","#555","#FFF","#FFF","#555","_","_"],
+["_","#555","#4AF","#4AF","#4AF","#4AF","#555","_"],
+["_","#555","#4AF","#555","#555","#4AF","#555","_"],
+["_","_","#555","_","_","#555","_","_"],
+["_","_","#555","_","_","#555","_","_"]
+]
+
+Now generate a sprite for the user's description. Output ONLY the JSON array.\
 """
 
 # --- Content Safety ---
@@ -102,8 +129,8 @@ def generate():
 
     try:
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=4096,
+            model="claude-sonnet-4-20250514",
+            max_tokens=1024,
             system=SPRITE_PROMPT.format(size=GRID_SIZE),
             messages=[{"role": "user", "content": safe_description}],
         )
@@ -123,6 +150,12 @@ def generate():
             or not all(isinstance(row, list) and len(row) == GRID_SIZE for row in grid)
         ):
             return jsonify({"error": "The sprite came out funny! Try again."}), 500
+
+        # Normalize "_" to transparent
+        for y in range(GRID_SIZE):
+            for x in range(GRID_SIZE):
+                if grid[y][x] == "_":
+                    grid[y][x] = "transparent"
 
         return jsonify({"grid": grid, "size": GRID_SIZE})
 
