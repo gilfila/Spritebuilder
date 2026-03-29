@@ -1,57 +1,20 @@
-import json
+import base64
 import os
 import re
 import time
 from collections import defaultdict
 from pathlib import Path
 
-import anthropic
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory
+from google import genai
+from google.genai import types
 
 load_dotenv()
 
 app = Flask(__name__, static_folder=str(Path(__file__).resolve().parent.parent / "static"), static_url_path="")
 
-client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_KEY"))
-
-GRID_SIZE = 16
-
-SPRITE_PROMPT = """\
-You are an expert pixel art sprite generator. You output {size}x{size} pixel art sprites as JSON arrays.
-
-RULES:
-- Output ONLY a JSON array of {size} arrays, each containing {size} hex color strings. No markdown, no explanation.
-- Use "_" for transparent/empty pixels (background).
-- Sprites must be cute, friendly, and kid-appropriate.
-- Use a LIMITED palette of 5-10 colors max for authentic pixel art.
-- Most sprites should be roughly SYMMETRICAL left-to-right.
-- Center the sprite in the grid. Use "_" for empty space around the sprite.
-- Think about the SILHOUETTE first: outline with a dark color, then fill with 2-3 main colors, then add 1-2 highlight/shadow colors.
-- Every row MUST have exactly {size} entries.
-
-EXAMPLE — "a happy cat":
-[
-["_","_","_","_","_","_","_","_","_","_","_","_","_","_","_","_"],
-["_","_","_","_","#222","#222","_","_","_","_","#222","#222","_","_","_","_"],
-["_","_","_","#222","#F90","#F90","#222","_","_","#222","#F90","#F90","#222","_","_","_"],
-["_","_","_","#222","#F90","#F90","#F90","#222","#222","#F90","#F90","#F90","#222","_","_","_"],
-["_","_","_","#222","#F90","#FFF","#F90","#F90","#F90","#F90","#FFF","#F90","#222","_","_","_"],
-["_","_","_","_","#222","#F90","#222","#F90","#F90","#222","#F90","#222","_","_","_","_"],
-["_","_","_","_","#222","#F90","#F90","#F90","#F90","#F90","#F90","#222","_","_","_","_"],
-["_","_","_","_","_","#222","#F90","#FBD","#FBD","#F90","#222","_","_","_","_","_"],
-["_","_","_","_","_","_","#222","#F90","#F90","#222","_","_","_","_","_","_"],
-["_","_","_","_","_","#222","#F90","#F90","#F90","#F90","#222","_","_","_","_","_"],
-["_","_","_","_","#222","#F90","#F90","#F90","#F90","#F90","#F90","#222","_","_","_","_"],
-["_","_","_","_","#222","#F90","#F90","#222","#222","#F90","#F90","#222","_","_","_","_"],
-["_","_","_","_","_","#222","#222","_","_","#222","#222","_","_","_","_","_"],
-["_","_","_","_","#222","#222","_","_","_","_","#222","#222","_","_","_","_"],
-["_","_","_","_","_","_","_","_","_","_","_","_","_","_","_","_"],
-["_","_","_","_","_","_","_","_","_","_","_","_","_","_","_","_"]
-]
-
-Now generate a sprite for the user's description. Output ONLY the JSON array.\
-"""
+gemini_client = genai.Client(api_key=os.environ.get("GEMINI_KEY"))
 
 # --- Content Safety ---
 
@@ -80,6 +43,14 @@ def check_prompt_safety(prompt: str) -> str | None:
     if BLOCKED_PATTERN.search(prompt):
         return "Hmm, let's try something different! How about a friendly animal or a cool vehicle?"
     return None
+
+
+def wrap_prompt(user_prompt: str) -> str:
+    return (
+        f"A cute, friendly 32x32 pixel art sprite of {user_prompt.strip()}. "
+        "Retro game style, colorful, kid-friendly, transparent background, "
+        "centered, clean pixel edges, limited color palette."
+    )
 
 
 # --- Rate Limiting ---
@@ -122,44 +93,31 @@ def generate():
     if error:
         return jsonify({"error": error}), 400
 
-    safe_description = f"a cute, friendly pixel art sprite of {prompt.strip()}"
+    safe_prompt = wrap_prompt(prompt)
 
     try:
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=4096,
-            system=SPRITE_PROMPT.format(size=GRID_SIZE),
-            messages=[{"role": "user", "content": safe_description}],
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash-image",
+            contents=safe_prompt,
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE"],
+                image_config=types.ImageConfig(
+                    aspect_ratio="1:1",
+                ),
+            ),
         )
 
-        raw = message.content[0].text.strip()
-        # Strip markdown code fences if present
-        if raw.startswith("```"):
-            raw = re.sub(r"^```\w*\n?", "", raw)
-            raw = re.sub(r"\n?```$", "", raw)
+        # Extract image data from response
+        for part in response.candidates[0].content.parts:
+            if part.inline_data:
+                image_b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
+                mime_type = part.inline_data.mime_type or "image/png"
+                return jsonify({
+                    "image_data": f"data:{mime_type};base64,{image_b64}",
+                })
 
-        grid = json.loads(raw)
-
-        # Validate grid structure
-        if (
-            not isinstance(grid, list)
-            or len(grid) != GRID_SIZE
-            or not all(isinstance(row, list) and len(row) == GRID_SIZE for row in grid)
-        ):
-            return jsonify({"error": "The sprite came out funny! Try again."}), 500
-
-        # Normalize "_" to transparent
-        for y in range(GRID_SIZE):
-            for x in range(GRID_SIZE):
-                if grid[y][x] == "_":
-                    grid[y][x] = "transparent"
-
-        return jsonify({"grid": grid, "size": GRID_SIZE})
-
-    except json.JSONDecodeError:
-        import traceback
-        traceback.print_exc()
         return jsonify({"error": "The sprite came out funny! Try again."}), 500
+
     except Exception:
         import traceback
         traceback.print_exc()
