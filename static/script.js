@@ -7,7 +7,22 @@ document.addEventListener("DOMContentLoaded", function () {
     var loginPass = document.getElementById("login-pass");
     var loginError = document.getElementById("login-error");
 
-    loginBtn.addEventListener("click", function () {
+    // Check if already logged in
+    var token = localStorage.getItem("sprite_token");
+    if (token) {
+        loginScreen.hidden = true;
+        appScreen.hidden = false;
+    }
+
+    loginBtn.addEventListener("click", doLogin);
+    loginPass.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") doLogin();
+    });
+    loginUser.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") doLogin();
+    });
+
+    function doLogin() {
         loginError.hidden = true;
         fetch("/api/login", {
             method: "POST",
@@ -28,6 +43,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     loginError.hidden = false;
                     return;
                 }
+                localStorage.setItem("sprite_token", result.data.token);
+                token = result.data.token;
                 loginScreen.hidden = true;
                 appScreen.hidden = false;
             })
@@ -35,11 +52,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 loginError.textContent = "Could not connect. Try again!";
                 loginError.hidden = false;
             });
-    });
-
-    loginPass.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") loginBtn.click();
-    });
+    }
 
     // App
     var promptInput = document.getElementById("prompt-input");
@@ -61,7 +74,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     var loadingInterval = null;
 
-    // Idea buttons fill the input
     ideaButtons.forEach(function (btn) {
         btn.addEventListener("click", function () {
             promptInput.value = btn.getAttribute("data-prompt");
@@ -69,7 +81,6 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
-    // Generate sprite
     generateBtn.addEventListener("click", function () {
         var prompt = promptInput.value.trim();
 
@@ -85,15 +96,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
         fetch("/api/generate", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + localStorage.getItem("sprite_token")
+            },
             body: JSON.stringify({ prompt: prompt })
         })
             .then(function (res) {
+                if (res.status === 401) {
+                    // Token invalid — back to login
+                    localStorage.removeItem("sprite_token");
+                    loginScreen.hidden = false;
+                    appScreen.hidden = true;
+                    return null;
+                }
                 return res.json().then(function (data) {
                     return { ok: res.ok, data: data };
                 });
             })
             .then(function (result) {
+                if (!result) return;
                 if (!result.ok) {
                     showError(result.data.error || "Something went wrong. Try again!");
                     return;
@@ -109,25 +131,21 @@ document.addEventListener("DOMContentLoaded", function () {
             });
     });
 
-    // Allow Enter key to trigger generation
     promptInput.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
             generateBtn.click();
         }
     });
 
-    // Save sprite as PNG
     saveBtn.addEventListener("click", function () {
         var src = spriteImg.src;
         if (!src) return;
-
         var link = document.createElement("a");
         link.download = "my-sprite.png";
         link.href = src;
         link.click();
     });
 
-    // Make another
     resetBtn.addEventListener("click", function () {
         promptInput.value = "";
         hideResult();
@@ -138,7 +156,6 @@ document.addEventListener("DOMContentLoaded", function () {
     function setLoading(on) {
         generateBtn.disabled = on;
         loadingSection.hidden = !on;
-
         if (on) {
             var msgIndex = 0;
             var loadingText = loadingSection.querySelector(".loading-text");
