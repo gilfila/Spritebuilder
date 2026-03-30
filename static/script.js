@@ -1,4 +1,47 @@
 document.addEventListener("DOMContentLoaded", function () {
+    // Login
+    var loginScreen = document.getElementById("login-screen");
+    var appScreen = document.getElementById("app-screen");
+    var loginBtn = document.getElementById("login-btn");
+    var loginUser = document.getElementById("login-user");
+    var loginPass = document.getElementById("login-pass");
+    var loginError = document.getElementById("login-error");
+
+    loginBtn.addEventListener("click", function () {
+        loginError.hidden = true;
+        fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: loginUser.value,
+                password: loginPass.value
+            })
+        })
+            .then(function (res) {
+                return res.json().then(function (data) {
+                    return { ok: res.ok, data: data };
+                });
+            })
+            .then(function (result) {
+                if (!result.ok) {
+                    loginError.textContent = result.data.error || "Login failed!";
+                    loginError.hidden = false;
+                    return;
+                }
+                loginScreen.hidden = true;
+                appScreen.hidden = false;
+            })
+            .catch(function () {
+                loginError.textContent = "Could not connect. Try again!";
+                loginError.hidden = false;
+            });
+    });
+
+    loginPass.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") loginBtn.click();
+    });
+
+    // App
     var promptInput = document.getElementById("prompt-input");
     var generateBtn = document.getElementById("generate-btn");
     var loadingSection = document.getElementById("loading");
