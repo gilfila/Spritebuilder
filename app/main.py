@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import os
 import re
 import time
@@ -7,28 +8,31 @@ from functools import wraps
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, send_from_directory, session
+from flask import Flask, jsonify, request, send_from_directory
 from google import genai
 from google.genai import types
 
 load_dotenv()
 
 app = Flask(__name__, static_folder=str(Path(__file__).resolve().parent.parent / "static"), static_url_path="")
-app.secret_key = os.environ.get("SECRET_KEY", os.urandom(32))
 
 AUTH_USER = "admin"
 AUTH_PASS = "cheese"
+# Token is a hash of the credentials — deterministic so it works across serverless invocations
+AUTH_TOKEN = hashlib.sha256(f"{AUTH_USER}:{AUTH_PASS}".encode()).hexdigest()
+
+gemini_client = genai.Client(api_key=os.environ.get("GEMINI_KEY"))
 
 
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not session.get("logged_in"):
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        if token != AUTH_TOKEN:
             return jsonify({"error": "Not authorized"}), 401
         return f(*args, **kwargs)
     return decorated
 
-gemini_client = genai.Client(api_key=os.environ.get("GEMINI_KEY"))
 
 # --- Content Safety ---
 
@@ -90,6 +94,16 @@ def index():
     return send_from_directory(app.static_folder, "index.html")
 
 
+@app.route("/style.css")
+def serve_css():
+    return send_from_directory(app.static_folder, "style.css")
+
+
+@app.route("/script.js")
+def serve_js():
+    return send_from_directory(app.static_folder, "script.js")
+
+
 @app.route("/api/login", methods=["POST"])
 def login():
     data = request.get_json(silent=True) or {}
@@ -97,8 +111,7 @@ def login():
     password = data.get("password", "")
 
     if username == AUTH_USER and password == AUTH_PASS:
-        session["logged_in"] = True
-        return jsonify({"ok": True})
+        return jsonify({"token": AUTH_TOKEN})
 
     return jsonify({"error": "Wrong username or password!"}), 401
 
@@ -135,7 +148,6 @@ def generate():
             ),
         )
 
-        # Extract image data from response
         for part in response.candidates[0].content.parts:
             if part.inline_data:
                 image_b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
