@@ -110,6 +110,12 @@ def login_page():
     return send_from_directory(app.static_folder, "login.html")
 
 
+@app.route("/favicon.ico")
+@app.route("/favicon.png")
+def favicon():
+    return "", 204
+
+
 @app.route("/app")
 def app_page():
     return send_from_directory(app.static_folder, "app.html")
