@@ -260,6 +260,70 @@ h1 {
     box-shadow: 0 3px 0 #c44d1a;
 }
 
+/* Game */
+.game-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.game-title {
+    font-family: "Press Start 2P", cursive;
+    font-size: 0.9rem;
+    color: #ff6b35;
+    text-align: center;
+}
+
+.game-hint {
+    font-size: 0.95rem;
+    color: #666;
+    text-align: center;
+}
+
+.game-wrapper {
+    position: relative;
+    border: 4px solid #90caf9;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+#game-canvas {
+    display: block;
+    background: #87CEEB;
+}
+
+.game-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.game-overlay[hidden] {
+    display: none;
+}
+
+.play-btn {
+    width: auto;
+    padding: 18px 32px;
+    font-size: 0.85rem;
+}
+
+.score-display {
+    font-family: "Press Start 2P", cursive;
+    font-size: 0.85rem;
+    color: #333;
+}
+
 /* Footer */
 footer {
     text-align: center;

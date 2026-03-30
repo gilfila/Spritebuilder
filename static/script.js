@@ -70,6 +70,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
                 spriteImg.src = result.data.image_data;
                 showResult();
+                // Pass sprite to the game
+                if (window.setGameSprite) {
+                    window.setGameSprite(result.data.image_data);
+                }
             })
             .catch(function () {
                 showError("Could not connect to the sprite machine. Try again!");
