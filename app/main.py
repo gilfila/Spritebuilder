@@ -109,6 +109,11 @@ def serve_js():
     return send_from_directory(app.static_folder, "script.js")
 
 
+@app.route("/game.js")
+def serve_game_js():
+    return send_from_directory(app.static_folder, "game.js")
+
+
 @app.route("/api/login", methods=["POST"])
 def login():
     data = request.get_json(silent=True) or {}

@@ -59,6 +59,18 @@
                     <button id="save-btn" class="action-btn save-btn">&#128190; Save Sprite</button>
                     <button id="reset-btn" class="action-btn reset-btn">&#127912; Make Another!</button>
                 </div>
+
+                <section id="game-section" class="game-section">
+                    <h2 class="game-title">Play with your sprite!</h2>
+                    <p class="game-hint">Tap or press Space to fly!</p>
+                    <div class="game-wrapper">
+                        <canvas id="game-canvas" width="360" height="480"></canvas>
+                        <div id="game-overlay" class="game-overlay">
+                            <button id="play-btn" class="generate-btn play-btn">&#127918; Start Game!</button>
+                        </div>
+                    </div>
+                    <p id="score-display" class="score-display">Score: 0</p>
+                </section>
             </section>
         </main>
 
@@ -68,5 +80,6 @@
     </div>
 
     <script src="/script.js"></script>
+    <script src="/game.js"></script>
 </body>
 </html>
