@@ -324,6 +324,122 @@ h1 {
     color: #333;
 }
 
+/* Carousel */
+.carousel-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.carousel-section[hidden] {
+    display: none;
+}
+
+.carousel-title {
+    font-family: "Press Start 2P", cursive;
+    font-size: 0.85rem;
+    color: #ff6b35;
+    text-align: center;
+}
+
+.carousel {
+    width: 100%;
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 8px 4px 12px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+
+.carousel::-webkit-scrollbar {
+    height: 6px;
+}
+
+.carousel::-webkit-scrollbar-thumb {
+    background: #90caf9;
+    border-radius: 3px;
+}
+
+.carousel-card {
+    flex: 0 0 auto;
+    width: 120px;
+    background: #fff;
+    border: 3px solid #ddd;
+    border-radius: 14px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.1s;
+    scroll-snap-align: start;
+}
+
+.carousel-card:hover {
+    transform: scale(1.04);
+    border-color: #90caf9;
+}
+
+.carousel-card.selected {
+    border-color: #ff6b35;
+    box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.3);
+}
+
+.carousel-card img {
+    width: 80px;
+    height: 80px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    border-radius: 8px;
+    background: #f5f5f5;
+}
+
+.carousel-card .card-label {
+    font-size: 0.65rem;
+    color: #666;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.carousel-card .card-actions {
+    display: flex;
+    gap: 4px;
+    width: 100%;
+}
+
+.card-btn {
+    flex: 1;
+    font-size: 0.6rem;
+    padding: 5px 2px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.1s;
+}
+
+.card-btn:hover {
+    transform: scale(1.06);
+}
+
+.card-btn.card-play {
+    background: #4caf50;
+    color: #fff;
+}
+
+.card-btn.card-download {
+    background: #42a5f5;
+    color: #fff;
+}
+
 /* Footer */
 footer {
     text-align: center;

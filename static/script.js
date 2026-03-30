@@ -14,6 +14,8 @@ document.addEventListener("DOMContentLoaded", function () {
     var resetBtn = document.getElementById("reset-btn");
     var errorMsg = document.getElementById("error-msg");
     var ideaButtons = document.querySelectorAll(".idea-btn");
+    var carouselSection = document.getElementById("carousel-section");
+    var carousel = document.getElementById("carousel");
 
     var loadingMessages = [
         "Creating your sprite...",
@@ -23,6 +25,10 @@ document.addEventListener("DOMContentLoaded", function () {
     ];
 
     var loadingInterval = null;
+
+    // Sprite history stored in memory (and localStorage for persistence)
+    var spriteHistory = loadHistory();
+    renderCarousel();
 
     ideaButtons.forEach(function (btn) {
         btn.addEventListener("click", function () {
@@ -35,7 +41,6 @@ document.addEventListener("DOMContentLoaded", function () {
         var prompt = promptInput.value.trim();
 
         hideError();
-        hideResult();
 
         if (!prompt) {
             showError("Type something or pick an idea above!");
@@ -68,12 +73,23 @@ document.addEventListener("DOMContentLoaded", function () {
                     showError(result.data.error || "Something went wrong. Try again!");
                     return;
                 }
-                spriteImg.src = result.data.image_idle;
+
+                var entry = {
+                    label: prompt,
+                    idle: result.data.image_idle,
+                    flap: result.data.image_flap,
+                    id: Date.now()
+                };
+
+                // Add to history
+                spriteHistory.unshift(entry);
+                if (spriteHistory.length > 20) spriteHistory.pop();
+                saveHistory();
+                renderCarousel();
+
+                // Show and select this sprite
+                selectSprite(entry);
                 showResult();
-                // Pass both sprite frames to the game
-                if (window.setGameSprite) {
-                    window.setGameSprite(result.data.image_idle, result.data.image_flap);
-                }
             })
             .catch(function () {
                 showError("Could not connect to the sprite machine. Try again!");
@@ -100,10 +116,113 @@ document.addEventListener("DOMContentLoaded", function () {
 
     resetBtn.addEventListener("click", function () {
         promptInput.value = "";
-        hideResult();
         hideError();
         promptInput.focus();
     });
+
+    // --- Carousel ---
+
+    function selectSprite(entry) {
+        spriteImg.src = entry.idle;
+        showResult();
+
+        if (window.setGameSprite) {
+            window.setGameSprite(entry.idle, entry.flap);
+        }
+
+        // Highlight selected card
+        var cards = carousel.querySelectorAll(".carousel-card");
+        cards.forEach(function (card) {
+            card.classList.toggle("selected", card.dataset.id === String(entry.id));
+        });
+    }
+
+    function renderCarousel() {
+        carousel.innerHTML = "";
+
+        if (spriteHistory.length === 0) {
+            carouselSection.hidden = true;
+            return;
+        }
+
+        carouselSection.hidden = false;
+
+        spriteHistory.forEach(function (entry) {
+            var card = document.createElement("div");
+            card.className = "carousel-card";
+            card.dataset.id = String(entry.id);
+
+            var img = document.createElement("img");
+            img.src = entry.idle;
+            img.alt = entry.label;
+
+            var label = document.createElement("div");
+            label.className = "card-label";
+            label.textContent = entry.label;
+            label.title = entry.label;
+
+            var actions = document.createElement("div");
+            actions.className = "card-actions";
+
+            var playBtn = document.createElement("button");
+            playBtn.className = "card-btn card-play";
+            playBtn.textContent = "\u25B6 Play";
+            playBtn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                selectSprite(entry);
+            });
+
+            var dlBtn = document.createElement("button");
+            dlBtn.className = "card-btn card-download";
+            dlBtn.textContent = "\u2B73 Save";
+            dlBtn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                var link = document.createElement("a");
+                link.download = entry.label.replace(/[^a-z0-9]/gi, "-") + ".png";
+                link.href = entry.idle;
+                link.click();
+            });
+
+            actions.appendChild(playBtn);
+            actions.appendChild(dlBtn);
+
+            card.appendChild(img);
+            card.appendChild(label);
+            card.appendChild(actions);
+
+            card.addEventListener("click", function () {
+                selectSprite(entry);
+            });
+
+            carousel.appendChild(card);
+        });
+    }
+
+    function saveHistory() {
+        try {
+            localStorage.setItem("sprite_history", JSON.stringify(spriteHistory));
+        } catch (e) {
+            // localStorage full — drop oldest entries
+            while (spriteHistory.length > 5) {
+                spriteHistory.pop();
+            }
+            try {
+                localStorage.setItem("sprite_history", JSON.stringify(spriteHistory));
+            } catch (e2) {
+                // give up on persistence
+            }
+        }
+    }
+
+    function loadHistory() {
+        try {
+            var data = localStorage.getItem("sprite_history");
+            if (data) return JSON.parse(data);
+        } catch (e) {}
+        return [];
+    }
+
+    // --- UI helpers ---
 
     function setLoading(on) {
         generateBtn.disabled = on;
@@ -133,10 +252,5 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function showResult() {
         resultSection.hidden = false;
-    }
-
-    function hideResult() {
-        resultSection.hidden = true;
-        spriteImg.src = "";
     }
 });
