@@ -3,16 +3,30 @@ import os
 import re
 import time
 from collections import defaultdict
+from functools import wraps
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, session
 from google import genai
 from google.genai import types
 
 load_dotenv()
 
 app = Flask(__name__, static_folder=str(Path(__file__).resolve().parent.parent / "static"), static_url_path="")
+app.secret_key = os.environ.get("SECRET_KEY", os.urandom(32))
+
+AUTH_USER = "admin"
+AUTH_PASS = "cheese"
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("logged_in"):
+            return jsonify({"error": "Not authorized"}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 gemini_client = genai.Client(api_key=os.environ.get("GEMINI_KEY"))
 
@@ -76,12 +90,26 @@ def index():
     return send_from_directory(app.static_folder, "index.html")
 
 
+@app.route("/api/login", methods=["POST"])
+def login():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    password = data.get("password", "")
+
+    if username == AUTH_USER and password == AUTH_PASS:
+        session["logged_in"] = True
+        return jsonify({"ok": True})
+
+    return jsonify({"error": "Wrong username or password!"}), 401
+
+
 @app.route("/api/health")
 def health():
     return jsonify({"status": "ok"})
 
 
 @app.route("/api/generate", methods=["POST"])
+@login_required
 def generate():
     if is_rate_limited(request.remote_addr):
         return jsonify({"error": "Slow down! Wait a moment before making another sprite."}), 429

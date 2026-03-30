@@ -10,7 +10,20 @@
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-    <div class="container">
+    <div id="login-screen" class="container">
+        <header>
+            <h1>Sprite Builder!</h1>
+            <p class="subtitle">Log in to start creating</p>
+        </header>
+        <section class="login-section">
+            <input type="text" id="login-user" placeholder="Username" autocomplete="off">
+            <input type="password" id="login-pass" placeholder="Password" autocomplete="off">
+            <button id="login-btn" class="generate-btn">&#128274; Log In</button>
+            <div id="login-error" class="error-msg" hidden></div>
+        </section>
+    </div>
+
+    <div id="app-screen" class="container" hidden>
         <header>
             <h1>Sprite Builder!</h1>
             <p class="subtitle">Create your own pixel art with AI</p>
@@ -65,7 +78,7 @@
         <footer>
             <p>Made for Tiger Scouts &#9889;</p>
         </footer>
-    </div>
+    </div><!-- end app-screen -->
 
     <script src="/script.js"></script>
 </body>
