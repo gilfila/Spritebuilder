@@ -159,6 +159,11 @@ h1 {
 }
 
 /* Loading spinner */
+.loading[hidden],
+.result[hidden] {
+    display: none;
+}
+
 .loading {
     display: flex;
     flex-direction: column;
