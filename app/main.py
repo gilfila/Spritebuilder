@@ -90,8 +90,13 @@ def is_rate_limited(ip: str) -> bool:
 # --- Routes ---
 
 @app.route("/")
-def index():
-    return send_from_directory(app.static_folder, "index.html")
+def login_page():
+    return send_from_directory(app.static_folder, "login.html")
+
+
+@app.route("/app")
+def app_page():
+    return send_from_directory(app.static_folder, "app.html")
 
 
 @app.route("/style.css")

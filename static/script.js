@@ -1,60 +1,10 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // Login
-    var loginScreen = document.getElementById("login-screen");
-    var appScreen = document.getElementById("app-screen");
-    var loginBtn = document.getElementById("login-btn");
-    var loginUser = document.getElementById("login-user");
-    var loginPass = document.getElementById("login-pass");
-    var loginError = document.getElementById("login-error");
-
-    // Check if already logged in
-    var token = localStorage.getItem("sprite_token");
-    if (token) {
-        loginScreen.hidden = true;
-        appScreen.hidden = false;
+    // If no token, redirect to login
+    if (!localStorage.getItem("sprite_token")) {
+        window.location.href = "/";
+        return;
     }
 
-    loginBtn.addEventListener("click", doLogin);
-    loginPass.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") doLogin();
-    });
-    loginUser.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") doLogin();
-    });
-
-    function doLogin() {
-        loginError.hidden = true;
-        fetch("/api/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                username: loginUser.value,
-                password: loginPass.value
-            })
-        })
-            .then(function (res) {
-                return res.json().then(function (data) {
-                    return { ok: res.ok, data: data };
-                });
-            })
-            .then(function (result) {
-                if (!result.ok) {
-                    loginError.textContent = result.data.error || "Login failed!";
-                    loginError.hidden = false;
-                    return;
-                }
-                localStorage.setItem("sprite_token", result.data.token);
-                token = result.data.token;
-                loginScreen.hidden = true;
-                appScreen.hidden = false;
-            })
-            .catch(function () {
-                loginError.textContent = "Could not connect. Try again!";
-                loginError.hidden = false;
-            });
-    }
-
-    // App
     var promptInput = document.getElementById("prompt-input");
     var generateBtn = document.getElementById("generate-btn");
     var loadingSection = document.getElementById("loading");
@@ -104,10 +54,8 @@ document.addEventListener("DOMContentLoaded", function () {
         })
             .then(function (res) {
                 if (res.status === 401) {
-                    // Token invalid — back to login
                     localStorage.removeItem("sprite_token");
-                    loginScreen.hidden = false;
-                    appScreen.hidden = true;
+                    window.location.href = "/";
                     return null;
                 }
                 return res.json().then(function (data) {

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprite Builder! - Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Sprite Builder!</h1>
+            <p class="subtitle">Log in to start creating</p>
+        </header>
+        <section class="login-section">
+            <input type="text" id="login-user" placeholder="Username" autocomplete="off">
+            <input type="password" id="login-pass" placeholder="Password" autocomplete="off">
+            <button id="login-btn" class="generate-btn">&#128274; Log In</button>
+            <div id="login-error" class="error-msg" hidden></div>
+        </section>
+    </div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var loginBtn = document.getElementById("login-btn");
+        var loginUser = document.getElementById("login-user");
+        var loginPass = document.getElementById("login-pass");
+        var loginError = document.getElementById("login-error");
+
+        function doLogin() {
+            loginError.hidden = true;
+            fetch("/api/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    username: loginUser.value,
+                    password: loginPass.value
+                })
+            })
+                .then(function (res) {
+                    return res.json().then(function (data) {
+                        return { ok: res.ok, data: data };
+                    });
+                })
+                .then(function (result) {
+                    if (!result.ok) {
+                        loginError.textContent = result.data.error || "Login failed!";
+                        loginError.hidden = false;
+                        return;
+                    }
+                    localStorage.setItem("sprite_token", result.data.token);
+                    window.location.href = "/app";
+                })
+                .catch(function () {
+                    loginError.textContent = "Could not connect. Try again!";
+                    loginError.hidden = false;
+                });
+        }
+
+        loginBtn.addEventListener("click", doLogin);
+        loginPass.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") doLogin();
+        });
+        loginUser.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") doLogin();
+        });
+    });
+    </script>
+</body>
+</html>
