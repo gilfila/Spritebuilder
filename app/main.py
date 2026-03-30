@@ -13,7 +13,6 @@ from flask import Flask, jsonify, request, send_from_directory
 from google import genai
 from google.genai import types
 from PIL import Image
-from rembg import remove
 
 load_dotenv()
 
@@ -216,12 +215,25 @@ def generate():
 def _extract_image(response) -> str | None:
     for part in response.candidates[0].content.parts:
         if part.inline_data:
-            # Remove background with rembg
             raw_bytes = part.inline_data.data
-            clean_bytes = remove(raw_bytes)
+            img = Image.open(io.BytesIO(raw_bytes)).convert("RGBA")
 
-            # Convert to PNG with transparency
-            img = Image.open(io.BytesIO(clean_bytes)).convert("RGBA")
+            # Remove background: make the corner color transparent
+            # Sample corners to find the dominant background color
+            pixels = img.load()
+            w, h = img.size
+            corners = [pixels[0, 0], pixels[w - 1, 0], pixels[0, h - 1], pixels[w - 1, h - 1]]
+            bg_color = max(set(corners), key=corners.count)
+
+            # Make all pixels close to the background color transparent
+            tolerance = 30
+            for y in range(h):
+                for x in range(w):
+                    r, g, b, a = pixels[x, y]
+                    br, bg, bb = bg_color[0], bg_color[1], bg_color[2]
+                    if abs(r - br) < tolerance and abs(g - bg) < tolerance and abs(b - bb) < tolerance:
+                        pixels[x, y] = (0, 0, 0, 0)
+
             buf = io.BytesIO()
             img.save(buf, format="PNG")
             image_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
