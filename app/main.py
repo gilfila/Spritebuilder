@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import io
 import os
 import re
 import time
@@ -11,6 +12,8 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory
 from google import genai
 from google.genai import types
+from PIL import Image
+from rembg import remove
 
 load_dotenv()
 
@@ -207,9 +210,16 @@ def generate():
 def _extract_image(response) -> str | None:
     for part in response.candidates[0].content.parts:
         if part.inline_data:
-            image_b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
-            mime_type = part.inline_data.mime_type or "image/png"
-            return f"data:{mime_type};base64,{image_b64}"
+            # Remove background with rembg
+            raw_bytes = part.inline_data.data
+            clean_bytes = remove(raw_bytes)
+
+            # Convert to PNG with transparency
+            img = Image.open(io.BytesIO(clean_bytes)).convert("RGBA")
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            image_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+            return f"data:image/png;base64,{image_b64}"
     return None
 
 
