@@ -68,11 +68,11 @@ document.addEventListener("DOMContentLoaded", function () {
                     showError(result.data.error || "Something went wrong. Try again!");
                     return;
                 }
-                spriteImg.src = result.data.image_data;
+                spriteImg.src = result.data.image_idle;
                 showResult();
-                // Pass sprite to the game
+                // Pass both sprite frames to the game
                 if (window.setGameSprite) {
-                    window.setGameSprite(result.data.image_data);
+                    window.setGameSprite(result.data.image_idle, result.data.image_flap);
                 }
             })
             .catch(function () {

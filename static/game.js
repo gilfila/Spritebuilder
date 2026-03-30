@@ -9,7 +9,8 @@
     var W = canvas.width;
     var H = canvas.height;
 
-    var spriteImg = null;
+    var spriteIdle = null;
+    var spriteFlap = null;
     var running = false;
     var animFrame = null;
 
@@ -25,11 +26,12 @@
     var PIPE_SPAWN_INTERVAL = 100;
     var BIRD_SIZE = 36;
     var GROUND_HEIGHT = 60;
+    var FLAP_FRAME_DURATION = 12; // frames to show flap sprite after tapping
 
     groundY = H - GROUND_HEIGHT;
 
     function reset() {
-        bird = { x: 80, y: H / 2 - 20, vy: 0, rotation: 0 };
+        bird = { x: 80, y: H / 2 - 20, vy: 0, rotation: 0, flapTimer: 0 };
         pipes = [];
         score = 0;
         frameCount = 0;
@@ -39,6 +41,7 @@
     function flap() {
         if (!running) return;
         bird.vy = FLAP_POWER;
+        bird.flapTimer = FLAP_FRAME_DURATION;
     }
 
     function spawnPipe() {
@@ -60,6 +63,11 @@
         bird.y += bird.vy;
         bird.rotation = Math.min(bird.vy * 3, 70);
 
+        // Flap animation timer
+        if (bird.flapTimer > 0) {
+            bird.flapTimer--;
+        }
+
         // Spawn pipes
         if (frameCount % PIPE_SPAWN_INTERVAL === 0) {
             spawnPipe();
@@ -69,14 +77,12 @@
         for (var i = pipes.length - 1; i >= 0; i--) {
             pipes[i].x -= PIPE_SPEED;
 
-            // Score
             if (!pipes[i].scored && pipes[i].x + PIPE_WIDTH < bird.x) {
                 pipes[i].scored = true;
                 score++;
                 scoreDisplay.textContent = "Score: " + score;
             }
 
-            // Remove off-screen
             if (pipes[i].x + PIPE_WIDTH < 0) {
                 pipes.splice(i, 1);
             }
@@ -97,12 +103,10 @@
         // Pipes
         for (var i = 0; i < pipes.length; i++) {
             var p = pipes[i];
-            // Top pipe
             if (rectsOverlap(bx, by, bw, bh, p.x, 0, PIPE_WIDTH, p.topH)) {
                 gameOver();
                 return;
             }
-            // Bottom pipe
             var bottomY = p.topH + PIPE_GAP;
             if (rectsOverlap(bx, by, bw, bh, p.x, bottomY, PIPE_WIDTH, groundY - bottomY)) {
                 gameOver();
@@ -120,7 +124,7 @@
         ctx.fillStyle = "#87CEEB";
         ctx.fillRect(0, 0, W, H);
 
-        // Clouds (simple)
+        // Clouds
         ctx.fillStyle = "rgba(255,255,255,0.7)";
         drawCloud(50, 60, 40);
         drawCloud(180, 100, 30);
@@ -129,13 +133,11 @@
         // Pipes
         for (var i = 0; i < pipes.length; i++) {
             var p = pipes[i];
-            // Top pipe
             ctx.fillStyle = "#4CAF50";
             ctx.fillRect(p.x, 0, PIPE_WIDTH, p.topH);
             ctx.fillStyle = "#388E3C";
             ctx.fillRect(p.x - 3, p.topH - 20, PIPE_WIDTH + 6, 20);
 
-            // Bottom pipe
             var bottomY = p.topH + PIPE_GAP;
             ctx.fillStyle = "#4CAF50";
             ctx.fillRect(p.x, bottomY, PIPE_WIDTH, groundY - bottomY);
@@ -149,12 +151,14 @@
         ctx.fillStyle = "#228B22";
         ctx.fillRect(0, groundY, W, 10);
 
-        // Bird (sprite)
+        // Bird — pick frame based on flap timer
+        var currentSprite = (bird.flapTimer > 0 && spriteFlap) ? spriteFlap : spriteIdle;
+
         ctx.save();
         ctx.translate(bird.x, bird.y);
         ctx.rotate(bird.rotation * Math.PI / 180);
-        if (spriteImg) {
-            ctx.drawImage(spriteImg, -BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
+        if (currentSprite) {
+            ctx.drawImage(currentSprite, -BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
         } else {
             ctx.fillStyle = "#FFD600";
             ctx.fillRect(-BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
@@ -191,7 +195,6 @@
         playBtn.textContent = "\uD83D\uDD04 Play Again!";
         overlay.hidden = false;
 
-        // Draw game over text
         ctx.fillStyle = "rgba(0,0,0,0.4)";
         ctx.fillRect(0, 0, W, H);
         ctx.fillStyle = "#fff";
@@ -209,15 +212,22 @@
         gameLoop();
     }
 
-    // Set sprite from the main app
-    window.setGameSprite = function (imgSrc) {
-        var img = new Image();
-        img.onload = function () {
-            spriteImg = img;
-            // Draw idle preview
+    // Set sprites from the main app (called after generation)
+    window.setGameSprite = function (idleSrc, flapSrc) {
+        var idleImg = new Image();
+        idleImg.onload = function () {
+            spriteIdle = idleImg;
             drawIdleScreen();
         };
-        img.src = imgSrc;
+        idleImg.src = idleSrc;
+
+        if (flapSrc) {
+            var flapImg = new Image();
+            flapImg.onload = function () {
+                spriteFlap = flapImg;
+            };
+            flapImg.src = flapSrc;
+        }
     };
 
     function drawIdleScreen() {
@@ -232,9 +242,8 @@
         ctx.fillStyle = "#228B22";
         ctx.fillRect(0, groundY, W, 10);
 
-        // Draw sprite in center
-        if (spriteImg) {
-            ctx.drawImage(spriteImg, W / 2 - 24, H / 2 - 24, 48, 48);
+        if (spriteIdle) {
+            ctx.drawImage(spriteIdle, W / 2 - 24, H / 2 - 24, 48, 48);
         }
     }
 
@@ -252,7 +261,6 @@
         }
     });
 
-    // Touch support for mobile
     canvas.addEventListener("touchstart", function (e) {
         if (running) {
             e.preventDefault();
@@ -260,6 +268,5 @@
         }
     });
 
-    // Draw initial empty screen
     drawIdleScreen();
 })();

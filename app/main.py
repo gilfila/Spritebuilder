@@ -63,11 +63,24 @@ def check_prompt_safety(prompt: str) -> str | None:
     return None
 
 
-def wrap_prompt(user_prompt: str) -> str:
+def make_idle_prompt(user_prompt: str) -> str:
     return (
-        f"A cute, friendly 32x32 pixel art sprite of {user_prompt.strip()}. "
-        "Retro game style, colorful, kid-friendly, transparent background, "
-        "centered, clean pixel edges, limited color palette."
+        f"A cute, friendly 32x32 pixel art character sprite of {user_prompt.strip()}, "
+        "standing idle pose, facing right, arms at sides. "
+        "Retro game style, colorful, kid-friendly, transparent PNG background, "
+        "centered on transparent checkerboard, clean pixel edges, limited color palette. "
+        "NO background, NO ground, NO shadow — only the character on transparency."
+    )
+
+
+def make_flap_prompt(user_prompt: str) -> str:
+    return (
+        f"A cute, friendly 32x32 pixel art character sprite of {user_prompt.strip()}, "
+        "flying pose with arms raised up high above its head, facing right. "
+        "Retro game style, colorful, kid-friendly, transparent PNG background, "
+        "centered on transparent checkerboard, clean pixel edges, limited color palette. "
+        "Same character style. "
+        "NO background, NO ground, NO shadow — only the character on transparency."
     )
 
 
@@ -144,29 +157,44 @@ def generate():
     if error:
         return jsonify({"error": error}), 400
 
-    safe_prompt = wrap_prompt(prompt)
+    idle_prompt = make_idle_prompt(prompt)
+    flap_prompt = make_flap_prompt(prompt)
 
     try:
-        response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash-image",
-            contents=safe_prompt,
-            config=types.GenerateContentConfig(
-                response_modalities=["IMAGE"],
-                image_config=types.ImageConfig(
-                    aspect_ratio="1:1",
-                ),
+        image_config = types.GenerateContentConfig(
+            response_modalities=["IMAGE"],
+            image_config=types.ImageConfig(
+                aspect_ratio="1:1",
             ),
         )
 
-        for part in response.candidates[0].content.parts:
-            if part.inline_data:
-                image_b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
-                mime_type = part.inline_data.mime_type or "image/png"
-                return jsonify({
-                    "image_data": f"data:{mime_type};base64,{image_b64}",
-                })
+        # Generate idle frame
+        idle_response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash-image",
+            contents=idle_prompt,
+            config=image_config,
+        )
 
-        return jsonify({"error": "The sprite came out funny! Try again."}), 500
+        idle_data = _extract_image(idle_response)
+        if not idle_data:
+            return jsonify({"error": "The sprite came out funny! Try again."}), 500
+
+        # Generate flap frame
+        flap_response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash-image",
+            contents=flap_prompt,
+            config=image_config,
+        )
+
+        flap_data = _extract_image(flap_response)
+        if not flap_data:
+            # Fall back to idle for both if flap fails
+            flap_data = idle_data
+
+        return jsonify({
+            "image_idle": idle_data,
+            "image_flap": flap_data,
+        })
 
     except Exception:
         import traceback
@@ -174,6 +202,15 @@ def generate():
         return jsonify({
             "error": "Our sprite machine is taking a nap! Try again in a moment."
         }), 500
+
+
+def _extract_image(response) -> str | None:
+    for part in response.candidates[0].content.parts:
+        if part.inline_data:
+            image_b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
+            mime_type = part.inline_data.mime_type or "image/png"
+            return f"data:{mime_type};base64,{image_b64}"
+    return None
 
 
 if __name__ == "__main__":
