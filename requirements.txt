@@ -2,4 +2,4 @@ flask
 google-genai
 pillow
 python-dotenv
-rembg
+rembg[cpu]
