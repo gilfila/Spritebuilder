@@ -206,6 +206,11 @@
     }
 
     function startGame() {
+        // Cancel any existing loop before starting a new one
+        if (animFrame) {
+            cancelAnimationFrame(animFrame);
+            animFrame = null;
+        }
         reset();
         overlay.hidden = true;
         running = true;
