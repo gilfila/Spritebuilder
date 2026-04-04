@@ -26,6 +26,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     var loadingInterval = null;
 
+    var prevBtn = document.getElementById("carousel-prev");
+    var nextBtn = document.getElementById("carousel-next");
+    var dotsContainer = document.getElementById("carousel-dots");
+    var PAGE_SIZE = 2;
+    var carouselPage = 0;
+
     // Sprite history stored in memory (and localStorage for persistence)
     var spriteHistory = loadHistory();
     renderCarousel();
@@ -84,6 +90,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 // Add to history
                 spriteHistory.unshift(entry);
                 if (spriteHistory.length > 20) spriteHistory.pop();
+                carouselPage = 0;
                 saveHistory();
                 renderCarousel();
 
@@ -122,6 +129,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // --- Carousel ---
 
+    prevBtn.addEventListener("click", function () {
+        if (carouselPage > 0) {
+            carouselPage--;
+            renderCarousel();
+        }
+    });
+
+    nextBtn.addEventListener("click", function () {
+        var totalPages = Math.ceil(spriteHistory.length / PAGE_SIZE);
+        if (carouselPage < totalPages - 1) {
+            carouselPage++;
+            renderCarousel();
+        }
+    });
+
     function selectSprite(entry) {
         spriteImg.src = entry.idle;
         showResult();
@@ -139,6 +161,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function renderCarousel() {
         carousel.innerHTML = "";
+        dotsContainer.innerHTML = "";
 
         if (spriteHistory.length === 0) {
             carouselSection.hidden = true;
@@ -147,7 +170,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
         carouselSection.hidden = false;
 
-        spriteHistory.forEach(function (entry) {
+        var totalPages = Math.ceil(spriteHistory.length / PAGE_SIZE);
+
+        // Clamp page
+        if (carouselPage >= totalPages) carouselPage = totalPages - 1;
+        if (carouselPage < 0) carouselPage = 0;
+
+        // Update arrow states
+        prevBtn.disabled = carouselPage === 0;
+        nextBtn.disabled = carouselPage >= totalPages - 1;
+
+        // Show only the current page of sprites
+        var start = carouselPage * PAGE_SIZE;
+        var pageItems = spriteHistory.slice(start, start + PAGE_SIZE);
+
+        pageItems.forEach(function (entry) {
             var card = document.createElement("div");
             card.className = "carousel-card";
             card.dataset.id = String(entry.id);
@@ -196,6 +233,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
             carousel.appendChild(card);
         });
+
+        // Render page dots (only if more than 1 page)
+        if (totalPages > 1) {
+            for (var i = 0; i < totalPages; i++) {
+                var dot = document.createElement("button");
+                dot.className = "carousel-dot" + (i === carouselPage ? " active" : "");
+                dot.setAttribute("aria-label", "Page " + (i + 1));
+                dot.dataset.page = String(i);
+                dot.addEventListener("click", function () {
+                    carouselPage = parseInt(this.dataset.page, 10);
+                    renderCarousel();
+                });
+                dotsContainer.appendChild(dot);
+            }
+        }
     }
 
     function saveHistory() {
