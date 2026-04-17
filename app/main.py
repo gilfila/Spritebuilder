@@ -1,13 +1,16 @@
 import base64
 import hashlib
+import hmac
 import io
 import os
 import re
+import sys
 import time
 from collections import defaultdict
 from functools import wraps
 from pathlib import Path
 
+import pyotp
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory
 from google import genai
@@ -18,10 +21,25 @@ load_dotenv()
 
 app = Flask(__name__, static_folder=str(Path(__file__).resolve().parent.parent / "static"), static_url_path="")
 
-AUTH_USER = "admin"
-AUTH_PASS = "cheese"
+AUTH_USER = os.environ.get("AUTH_USERNAME", "admin")
+AUTH_PASS = os.environ.get("AUTH_PASSWORD", "cheese")
+AUTH_TOTP_SECRET = (os.environ.get("AUTH_TOTP_SECRET") or "").strip() or None
 # Token is a hash of the credentials — deterministic so it works across serverless invocations
 AUTH_TOKEN = hashlib.sha256(f"{AUTH_USER}:{AUTH_PASS}".encode()).hexdigest()
+
+_totp = pyotp.TOTP(AUTH_TOTP_SECRET) if AUTH_TOTP_SECRET else None
+
+if AUTH_USER == "admin" and AUTH_PASS == "cheese":
+    print(
+        "WARNING: using default credentials. Set AUTH_USERNAME and AUTH_PASSWORD in .env.",
+        file=sys.stderr,
+    )
+if _totp is None:
+    print(
+        "WARNING: AUTH_TOTP_SECRET not set — MFA disabled. "
+        "Run `python -m app.provision_mfa` to generate a secret.",
+        file=sys.stderr,
+    )
 
 gemini_client = genai.Client(api_key=os.environ.get("GEMINI_KEY"))
 
@@ -245,14 +263,36 @@ def serve_game_js():
 
 @app.route("/api/login", methods=["POST"])
 def login():
+    # Per-IP rate limit on login to blunt credential stuffing. Uses the same
+    # sliding-window store as /api/generate, keyed under a distinct prefix so
+    # the two limits don't cross-contaminate.
+    login_key = f"login:{request.remote_addr}"
+    if is_rate_limited(login_key):
+        return jsonify({"error": "Too many tries. Wait a moment and try again."}), 429
+
     data = request.get_json(silent=True) or {}
-    username = data.get("username", "")
-    password = data.get("password", "")
+    username = str(data.get("username", ""))
+    password = str(data.get("password", ""))
+    code = str(data.get("code", "")).strip()
 
-    if username == AUTH_USER and password == AUTH_PASS:
-        return jsonify({"token": AUTH_TOKEN})
+    user_ok = hmac.compare_digest(username, AUTH_USER)
+    pass_ok = hmac.compare_digest(password, AUTH_PASS)
+    if not (user_ok and pass_ok):
+        return jsonify({"error": "Wrong username or password!"}), 401
 
-    return jsonify({"error": "Wrong username or password!"}), 401
+    if _totp is not None:
+        if not code:
+            return jsonify({"error": "Enter your 6-digit code.", "mfa_required": True}), 401
+        # valid_window=1 tolerates one 30-second step of clock drift
+        if not _totp.verify(code, valid_window=1):
+            return jsonify({"error": "That code didn't match. Try the current one.", "mfa_required": True}), 401
+
+    return jsonify({"token": AUTH_TOKEN})
+
+
+@app.route("/api/auth/config")
+def auth_config():
+    return jsonify({"mfa_required": _totp is not None})
 
 
 @app.route("/api/health")
