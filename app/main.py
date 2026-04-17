@@ -65,6 +65,114 @@ def check_prompt_safety(prompt: str) -> str | None:
     return None
 
 
+# --- Slot Builder ---
+# Allowlisted picture-grid choices. Each value is (emoji, display label, prompt phrase).
+# Keeping everything server-side means the client only sends slot IDs, so no free
+# text from the kid ever hits the model.
+
+SLOT_CHOICES: dict[str, dict[str, tuple[str, str, str]]] = {
+    "character": {
+        "cat":      ("\U0001F431", "Cat",      "cat"),
+        "dog":      ("\U0001F436", "Puppy",    "puppy dog"),
+        "fox":      ("\U0001F98A", "Fox",      "fox"),
+        "bunny":    ("\U0001F430", "Bunny",    "bunny rabbit"),
+        "bear":     ("\U0001F43B", "Bear",     "bear cub"),
+        "lion":     ("\U0001F981", "Lion",     "lion cub"),
+        "tiger":    ("\U0001F42F", "Tiger",    "tiger cub"),
+        "frog":     ("\U0001F438", "Frog",     "frog"),
+        "owl":      ("\U0001F989", "Owl",      "owl"),
+        "dragon":   ("\U0001F409", "Dragon",   "friendly baby dragon"),
+        "unicorn":  ("\U0001F984", "Unicorn",  "unicorn"),
+        "dino":     ("\U0001F996", "Dino",     "little dinosaur"),
+        "robot":    ("\U0001F916", "Robot",    "round friendly robot"),
+        "alien":    ("\U0001F47D", "Alien",    "cute alien"),
+        "astronaut":("\U0001F9D1\u200D\U0001F680", "Astronaut", "kid astronaut"),
+        "wizard":   ("\U0001F9D9", "Wizard",   "young wizard"),
+    },
+    "color": {
+        "red":     ("\U0001F534", "Red",     "bright red"),
+        "orange":  ("\U0001F7E0", "Orange",  "orange"),
+        "yellow":  ("\U0001F7E1", "Yellow",  "sunny yellow"),
+        "green":   ("\U0001F7E2", "Green",   "grass green"),
+        "blue":    ("\U0001F535", "Blue",    "sky blue"),
+        "purple":  ("\U0001F7E3", "Purple",  "purple"),
+        "pink":    ("\U0001F338", "Pink",    "bubblegum pink"),
+        "white":   ("\u2B1C",     "White",   "snowy white"),
+        "brown":   ("\U0001F7E4", "Brown",   "warm brown"),
+        "black":   ("\u2B1B",     "Black",   "inky black"),
+        "rainbow": ("\U0001F308", "Rainbow", "rainbow colored"),
+        "gold":    ("\u2B50",     "Gold",    "shiny gold"),
+    },
+    "style": {
+        "none":     ("\u274C",     "None",      ""),
+        "hat":      ("\U0001F3A9", "Top Hat",   "wearing a tiny top hat"),
+        "wizard":   ("\U0001F9D9", "Wiz Hat",   "wearing a pointy wizard hat with stars"),
+        "crown":    ("\U0001F451", "Crown",     "wearing a golden crown"),
+        "cape":     ("\U0001F9E5", "Cape",      "wearing a flowing cape"),
+        "scarf":    ("\U0001F9E3", "Scarf",     "wearing a cozy scarf"),
+        "glasses":  ("\U0001F576", "Shades",    "wearing cool sunglasses"),
+        "bowtie":   ("\U0001F380", "Bow Tie",   "wearing a fancy bow tie"),
+        "backpack": ("\U0001F392", "Backpack",  "wearing a little backpack"),
+        "headband": ("\U0001F9E2", "Headband",  "wearing a sporty headband"),
+        "wings":    ("\U0001FAB6", "Wings",     "with tiny feathery wings"),
+        "bandana":  ("\U0001F3F4", "Bandana",   "wearing a polka-dot bandana"),
+    },
+    "vibe": {
+        "none":     ("\u274C",     "None",     ""),
+        "happy":    ("\U0001F600", "Happy",    "with a big happy smile"),
+        "excited":  ("\U0001F929", "Excited",  "looking super excited and starry-eyed"),
+        "silly":    ("\U0001F61D", "Silly",    "making a silly face with tongue out"),
+        "cool":     ("\U0001F60E", "Cool",     "looking relaxed and cool"),
+        "brave":    ("\U0001F642", "Brave",    "standing tall and brave"),
+        "sleepy":   ("\U0001F634", "Sleepy",   "looking sleepy and yawning"),
+        "curious":  ("\U0001F914", "Curious",  "looking curious"),
+        "love":     ("\U0001F60D", "Love",     "with heart eyes"),
+        "dance":    ("\U0001F483", "Dancy",    "striking a dance pose"),
+        "surprised":("\U0001F62E", "Wow",      "looking surprised"),
+        "proud":    ("\U0001F60A", "Proud",    "looking proud and cheerful"),
+    },
+}
+
+REQUIRED_SLOTS = ("character", "color")
+
+
+def get_slot_catalog() -> dict:
+    return {
+        slot: [
+            {"id": choice_id, "emoji": emoji, "label": label}
+            for choice_id, (emoji, label, _phrase) in choices.items()
+        ]
+        for slot, choices in SLOT_CHOICES.items()
+    }
+
+
+def compose_prompt_from_slots(slots: dict) -> tuple[str | None, str | None]:
+    """Returns (prompt, error). Prompt is None when validation fails."""
+    if not isinstance(slots, dict):
+        return None, "Pick a character and a color to get started!"
+
+    resolved: dict[str, str] = {}
+    for slot, choices in SLOT_CHOICES.items():
+        value = slots.get(slot)
+        if value is None or value == "":
+            if slot in REQUIRED_SLOTS:
+                return None, "Pick a character and a color to get started!"
+            continue
+        if not isinstance(value, str) or value not in choices:
+            return None, "That's not a choice I know. Tap a picture to pick one!"
+        resolved[slot] = choices[value][2]
+
+    if "character" not in resolved or "color" not in resolved:
+        return None, "Pick a character and a color to get started!"
+
+    parts = [f"a {resolved['color']} {resolved['character']}"]
+    if resolved.get("style"):
+        parts.append(resolved["style"])
+    if resolved.get("vibe"):
+        parts.append(resolved["vibe"])
+    return ", ".join(parts), None
+
+
 def make_idle_prompt(user_prompt: str) -> str:
     return (
         f"A cute, friendly 32x32 pixel art character sprite of {user_prompt.strip()}, "
@@ -152,6 +260,12 @@ def health():
     return jsonify({"status": "ok"})
 
 
+@app.route("/api/slots")
+@login_required
+def slots_catalog():
+    return jsonify({"slots": get_slot_catalog(), "required": list(REQUIRED_SLOTS)})
+
+
 @app.route("/api/generate", methods=["POST"])
 @login_required
 def generate():
@@ -159,7 +273,14 @@ def generate():
         return jsonify({"error": "Slow down! Wait a moment before making another sprite."}), 429
 
     data = request.get_json(silent=True) or {}
+    slots = data.get("slots")
     prompt = data.get("prompt", "")
+
+    if slots:
+        composed, slot_error = compose_prompt_from_slots(slots)
+        if slot_error:
+            return jsonify({"error": slot_error}), 400
+        prompt = composed
 
     error = check_prompt_safety(prompt)
     if error:
