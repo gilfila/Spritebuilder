@@ -18,31 +18,72 @@
 
         <main>
             <section class="prompt-section">
-                <label for="prompt-input">What should your sprite look like?</label>
-                <input
-                    type="text"
-                    id="prompt-input"
-                    placeholder="A happy cat..."
-                    maxlength="200"
-                    autocomplete="off"
-                >
-
-                <div class="idea-buttons">
-                    <p class="idea-label">Or pick an idea:</p>
-                    <div class="idea-grid">
-                        <button class="idea-btn" data-prompt="a happy cat">&#128049; Happy Cat</button>
-                        <button class="idea-btn" data-prompt="a brave knight">&#9876;&#65039; Brave Knight</button>
-                        <button class="idea-btn" data-prompt="a funny robot">&#129302; Funny Robot</button>
-                        <button class="idea-btn" data-prompt="a magic unicorn">&#129412; Magic Unicorn</button>
-                        <button class="idea-btn" data-prompt="a friendly dragon">&#128009; Friendly Dragon</button>
-                        <button class="idea-btn" data-prompt="a cool spaceship">&#128640; Cool Spaceship</button>
-                    </div>
+                <p class="builder-label">Build your sprite! Tap each box:</p>
+                <div class="slot-row" id="slot-row">
+                    <button class="slot" type="button" data-slot="character">
+                        <span class="slot-title">Character</span>
+                        <span class="slot-value slot-placeholder">+</span>
+                        <span class="slot-hint">(pick one)</span>
+                    </button>
+                    <button class="slot" type="button" data-slot="color">
+                        <span class="slot-title">Color</span>
+                        <span class="slot-value slot-placeholder">+</span>
+                        <span class="slot-hint">(pick one)</span>
+                    </button>
+                    <button class="slot" type="button" data-slot="style">
+                        <span class="slot-title">Style</span>
+                        <span class="slot-value slot-placeholder">+</span>
+                        <span class="slot-hint">(optional)</span>
+                    </button>
+                    <button class="slot" type="button" data-slot="vibe">
+                        <span class="slot-title">Vibe</span>
+                        <span class="slot-value slot-placeholder">+</span>
+                        <span class="slot-hint">(optional)</span>
+                    </button>
                 </div>
 
-                <button id="generate-btn" class="generate-btn">
-                    &#10024; Create My Sprite!
+                <button id="generate-btn" class="generate-btn" disabled>
+                    &#10024; Make My Sprite!
                 </button>
+
+                <details class="type-mode">
+                    <summary>Or type your own idea</summary>
+                    <div class="type-mode-body">
+                        <div class="input-with-mic">
+                            <input
+                                type="text"
+                                id="prompt-input"
+                                placeholder="A happy cat..."
+                                maxlength="200"
+                                autocomplete="off"
+                            >
+                            <button
+                                type="button"
+                                id="mic-btn"
+                                class="mic-btn"
+                                aria-label="Speak your idea"
+                                title="Speak your idea"
+                                hidden
+                            >&#127908;</button>
+                        </div>
+                        <p id="mic-status" class="mic-status" hidden></p>
+                        <button id="generate-text-btn" class="generate-btn generate-text-btn">
+                            &#10024; Make From My Words!
+                        </button>
+                    </div>
+                </details>
             </section>
+
+            <div id="slot-modal" class="modal" hidden>
+                <div class="modal-backdrop" data-close></div>
+                <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+                    <div class="modal-head">
+                        <h3 id="modal-title" class="modal-title">Pick one</h3>
+                        <button type="button" class="modal-close" data-close aria-label="Close">&times;</button>
+                    </div>
+                    <div id="modal-grid" class="modal-grid"></div>
+                </div>
+            </div>
 
             <div id="error-msg" class="error-msg" hidden></div>
 
