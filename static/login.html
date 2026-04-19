@@ -16,8 +16,18 @@
             <p class="subtitle">Log in to start creating</p>
         </header>
         <section class="login-section">
-            <input type="text" id="login-user" placeholder="Username" autocomplete="off">
-            <input type="password" id="login-pass" placeholder="Password" autocomplete="off">
+            <input type="text" id="login-user" placeholder="Username" autocomplete="username">
+            <input type="password" id="login-pass" placeholder="Password" autocomplete="current-password">
+            <input
+                type="text"
+                id="login-code"
+                placeholder="6-digit code"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                maxlength="6"
+                autocomplete="one-time-code"
+                hidden
+            >
             <button id="login-btn" class="generate-btn">&#128274; Log In</button>
             <div id="login-error" class="error-msg" hidden></div>
         </section>
@@ -28,7 +38,18 @@
         var loginBtn = document.getElementById("login-btn");
         var loginUser = document.getElementById("login-user");
         var loginPass = document.getElementById("login-pass");
+        var loginCode = document.getElementById("login-code");
         var loginError = document.getElementById("login-error");
+
+        // Ask the server up front whether MFA is configured, so we can show
+        // the code field. If the fetch fails, leave it hidden — the server
+        // will tell us with mfa_required in the login response.
+        fetch("/api/auth/config")
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data && data.mfa_required) loginCode.hidden = false;
+            })
+            .catch(function () {});
 
         function doLogin() {
             loginError.hidden = true;
@@ -37,7 +58,8 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     username: loginUser.value,
-                    password: loginPass.value
+                    password: loginPass.value,
+                    code: loginCode.value.trim()
                 })
             })
                 .then(function (res) {
@@ -47,7 +69,11 @@
                 })
                 .then(function (result) {
                     if (!result.ok) {
-                        loginError.textContent = result.data.error || "Login failed!";
+                        if (result.data && result.data.mfa_required) {
+                            loginCode.hidden = false;
+                            loginCode.focus();
+                        }
+                        loginError.textContent = (result.data && result.data.error) || "Login failed!";
                         loginError.hidden = false;
                         return;
                     }
@@ -61,11 +87,10 @@
         }
 
         loginBtn.addEventListener("click", doLogin);
-        loginPass.addEventListener("keydown", function (e) {
-            if (e.key === "Enter") doLogin();
-        });
-        loginUser.addEventListener("keydown", function (e) {
-            if (e.key === "Enter") doLogin();
+        [loginUser, loginPass, loginCode].forEach(function (el) {
+            el.addEventListener("keydown", function (e) {
+                if (e.key === "Enter") doLogin();
+            });
         });
     });
     </script>
