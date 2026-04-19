@@ -715,6 +715,114 @@ footer {
     color: #888;
 }
 
+/* MFA setup */
+.setup-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.setup-steps {
+    list-style: decimal inside;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 16px 18px;
+    background: #fff;
+    border: 3px solid #90caf9;
+    border-radius: 14px;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.setup-steps > li {
+    padding-left: 4px;
+}
+
+.qr-wrap {
+    margin-top: 10px;
+    padding: 10px;
+    background: #fff;
+    border: 2px solid #e3e9f0;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 220px;
+}
+
+.qr-wrap svg {
+    width: 100%;
+    max-width: 220px;
+    height: auto;
+    display: block;
+}
+
+.qr-loading {
+    color: #888;
+    font-size: 0.95rem;
+}
+
+.manual-entry {
+    margin-top: 8px;
+    font-size: 0.9rem;
+}
+
+.manual-entry > summary {
+    cursor: pointer;
+    color: #1565c0;
+    font-weight: 600;
+    list-style: none;
+}
+
+.manual-entry > summary::-webkit-details-marker {
+    display: none;
+}
+
+.manual-entry > summary::before {
+    content: "\25B8";
+    display: inline-block;
+    margin-right: 6px;
+    transition: transform 0.15s;
+}
+
+.manual-entry[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.manual-secret {
+    display: block;
+    margin-top: 8px;
+    padding: 10px 12px;
+    font-family: "Press Start 2P", monospace;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    background: #f4f7fb;
+    border: 2px dashed #b0c4de;
+    border-radius: 10px;
+    word-break: break-all;
+}
+
+.verify-code {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    font-family: "Press Start 2P", monospace;
+    font-size: 1.4rem;
+    letter-spacing: 6px;
+    text-align: center;
+    padding: 14px 16px;
+    border: 3px solid #90caf9;
+    border-radius: 12px;
+    outline: none;
+}
+
+.verify-code:focus {
+    border-color: #42a5f5;
+    box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.25);
+}
+
 /* Login */
 .login-section {
     width: 100%;

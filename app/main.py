@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import io
+import json
 import os
 import re
 import sys
@@ -11,6 +12,7 @@ from functools import wraps
 from pathlib import Path
 
 import pyotp
+import segno
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory
 from google import genai
@@ -19,25 +21,67 @@ from PIL import Image
 
 load_dotenv()
 
-app = Flask(__name__, static_folder=str(Path(__file__).resolve().parent.parent / "static"), static_url_path="")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+app = Flask(__name__, static_folder=str(PROJECT_ROOT / "static"), static_url_path="")
 
 AUTH_USER = os.environ.get("AUTH_USERNAME", "admin")
 AUTH_PASS = os.environ.get("AUTH_PASSWORD", "cheese")
-AUTH_TOTP_SECRET = (os.environ.get("AUTH_TOTP_SECRET") or "").strip() or None
 # Token is a hash of the credentials — deterministic so it works across serverless invocations
 AUTH_TOKEN = hashlib.sha256(f"{AUTH_USER}:{AUTH_PASS}".encode()).hexdigest()
 
-_totp = pyotp.TOTP(AUTH_TOTP_SECRET) if AUTH_TOTP_SECRET else None
+# --- TOTP state ---
+# Resolution order for the TOTP secret:
+#   1. AUTH_TOTP_SECRET env var (read-only; overrides everything)
+#   2. AUTH_STATE_PATH file contents (defaults to <project>/.auth_state.json;
+#      override on serverless hosts where the repo dir is read-only)
+# Enrollment via the web UI writes to the file. Serverless deployments can
+# promote the file-stored secret to an env var to survive cold starts.
+AUTH_STATE_PATH = Path(os.environ.get("AUTH_STATE_PATH") or (PROJECT_ROOT / ".auth_state.json"))
+_ENV_TOTP_SECRET = (os.environ.get("AUTH_TOTP_SECRET") or "").strip() or None
+
+
+def _load_stored_secret() -> str | None:
+    if _ENV_TOTP_SECRET:
+        return _ENV_TOTP_SECRET
+    try:
+        data = json.loads(AUTH_STATE_PATH.read_text())
+        secret = (data.get("totp_secret") or "").strip()
+        return secret or None
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None
+
+
+def _save_stored_secret(secret: str) -> None:
+    if _ENV_TOTP_SECRET:
+        # Env var wins; file would be ignored. Refuse so the UI can surface it.
+        raise RuntimeError("AUTH_TOTP_SECRET is set via env var; unset it to enroll via the app.")
+    try:
+        AUTH_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        AUTH_STATE_PATH.write_text(json.dumps({"totp_secret": secret}))
+        try:
+            os.chmod(AUTH_STATE_PATH, 0o600)
+        except OSError:
+            pass
+    except OSError as exc:
+        raise RuntimeError(
+            f"Could not persist MFA secret to {AUTH_STATE_PATH}. "
+            "On Vercel/serverless, set AUTH_TOTP_SECRET as an env var instead."
+        ) from exc
+
+
+def _current_totp() -> pyotp.TOTP | None:
+    secret = _load_stored_secret()
+    return pyotp.TOTP(secret) if secret else None
+
 
 if AUTH_USER == "admin" and AUTH_PASS == "cheese":
     print(
         "WARNING: using default credentials. Set AUTH_USERNAME and AUTH_PASSWORD in .env.",
         file=sys.stderr,
     )
-if _totp is None:
+if _current_totp() is None:
     print(
-        "WARNING: AUTH_TOTP_SECRET not set — MFA disabled. "
-        "Run `python -m app.provision_mfa` to generate a secret.",
+        "INFO: MFA not configured yet. Log in once, then follow the in-app setup prompt.",
         file=sys.stderr,
     )
 
@@ -263,9 +307,7 @@ def serve_game_js():
 
 @app.route("/api/login", methods=["POST"])
 def login():
-    # Per-IP rate limit on login to blunt credential stuffing. Uses the same
-    # sliding-window store as /api/generate, keyed under a distinct prefix so
-    # the two limits don't cross-contaminate.
+    # Per-IP rate limit on login to blunt credential stuffing.
     login_key = f"login:{request.remote_addr}"
     if is_rate_limited(login_key):
         return jsonify({"error": "Too many tries. Wait a moment and try again."}), 429
@@ -280,19 +322,80 @@ def login():
     if not (user_ok and pass_ok):
         return jsonify({"error": "Wrong username or password!"}), 401
 
-    if _totp is not None:
-        if not code:
-            return jsonify({"error": "Enter your 6-digit code.", "mfa_required": True}), 401
-        # valid_window=1 tolerates one 30-second step of clock drift
-        if not _totp.verify(code, valid_window=1):
-            return jsonify({"error": "That code didn't match. Try the current one.", "mfa_required": True}), 401
+    totp = _current_totp()
+    if totp is None:
+        # First login — direct the browser to the in-app enrollment flow.
+        # The session token is still returned so the setup endpoints can authenticate.
+        return jsonify({"token": AUTH_TOKEN, "mfa_setup_required": True})
+
+    if not code:
+        return jsonify({"error": "Enter your 6-digit code.", "mfa_required": True}), 401
+    # valid_window=1 tolerates one 30-second step of clock drift
+    if not totp.verify(code, valid_window=1):
+        return jsonify({"error": "That code didn't match. Try the current one.", "mfa_required": True}), 401
 
     return jsonify({"token": AUTH_TOKEN})
 
 
 @app.route("/api/auth/config")
 def auth_config():
-    return jsonify({"mfa_required": _totp is not None})
+    return jsonify({"mfa_required": _current_totp() is not None})
+
+
+# --- In-app MFA enrollment ---
+
+@app.route("/api/mfa/status")
+@login_required
+def mfa_status():
+    return jsonify({
+        "configured": _current_totp() is not None,
+        "env_locked": _ENV_TOTP_SECRET is not None,
+    })
+
+
+@app.route("/api/mfa/setup/begin", methods=["POST"])
+@login_required
+def mfa_setup_begin():
+    if _current_totp() is not None:
+        return jsonify({"error": "MFA is already set up."}), 400
+    if _ENV_TOTP_SECRET is not None:
+        return jsonify({"error": "MFA secret is controlled by the AUTH_TOTP_SECRET env var."}), 400
+
+    secret = pyotp.random_base32()
+    uri = pyotp.TOTP(secret).provisioning_uri(name=AUTH_USER, issuer_name="Sprite Builder")
+    qr_svg = segno.make(uri, error="m").svg_inline(scale=6, border=2, dark="#222", light="#fff")
+    return jsonify({"secret": secret, "uri": uri, "qr_svg": qr_svg})
+
+
+@app.route("/api/mfa/setup/verify", methods=["POST"])
+@login_required
+def mfa_setup_verify():
+    if _current_totp() is not None:
+        return jsonify({"error": "MFA is already set up."}), 400
+
+    data = request.get_json(silent=True) or {}
+    secret = str(data.get("secret", "")).strip().upper()
+    code = str(data.get("code", "")).strip()
+
+    if not secret or not re.fullmatch(r"[A-Z2-7]+=*", secret):
+        return jsonify({"error": "Setup got out of sync. Start over."}), 400
+    if not code.isdigit() or len(code) != 6:
+        return jsonify({"error": "Enter the 6-digit code from your app."}), 400
+
+    if not pyotp.TOTP(secret).verify(code, valid_window=1):
+        return jsonify({"error": "That code didn't match. Try the current one."}), 400
+
+    try:
+        _save_stored_secret(secret)
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 500
+
+    return jsonify({"ok": True})
+
+
+@app.route("/setup-mfa")
+def setup_mfa_page():
+    return send_from_directory(app.static_folder, "setup.html")
 
 
 @app.route("/api/health")
