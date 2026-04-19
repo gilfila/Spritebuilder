@@ -52,6 +52,21 @@
             </button>
 
             <div id="setup-error" class="error-msg" hidden></div>
+
+            <div id="manual-panel" class="manual-panel" hidden>
+                <h2>Almost there &mdash; one more step</h2>
+                <p id="manual-message"></p>
+                <p>Copy this and add it as an environment variable named
+                    <code>AUTH_TOTP_SECRET</code>, then redeploy:</p>
+                <div class="manual-copy">
+                    <code id="manual-copy-secret"></code>
+                    <button type="button" id="copy-btn" class="action-btn save-btn">Copy</button>
+                </div>
+                <p class="manual-footnote">
+                    After redeploying, come back and log in with your 6-digit code.
+                    You won't need to scan the QR again.
+                </p>
+            </div>
         </section>
     </div>
 
@@ -138,6 +153,10 @@
                         verifyBtn.disabled = false;
                         return;
                     }
+                    if (result.data.manual_required) {
+                        showManualPanel(result.data.secret, result.data.message);
+                        return;
+                    }
                     window.location.href = "/app";
                 })
                 .catch(function () {
@@ -148,6 +167,35 @@
 
         function formatSecret(s) {
             return s.replace(/(.{4})/g, "$1 ").trim();
+        }
+
+        function showManualPanel(secret, message) {
+            var panel = document.getElementById("manual-panel");
+            var msg = document.getElementById("manual-message");
+            var copySecret = document.getElementById("manual-copy-secret");
+            var copyBtn = document.getElementById("copy-btn");
+
+            msg.textContent = message || "Your server couldn't persist the secret.";
+            copySecret.textContent = secret;
+            panel.hidden = false;
+            panel.scrollIntoView({ behavior: "smooth", block: "start" });
+
+            // Hide the verify button — the user's next step is to copy + redeploy.
+            verifyBtn.hidden = true;
+
+            copyBtn.addEventListener("click", function () {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(secret).then(function () {
+                        copyBtn.textContent = "Copied!";
+                        setTimeout(function () { copyBtn.textContent = "Copy"; }, 1500);
+                    });
+                } else {
+                    var range = document.createRange();
+                    range.selectNode(copySecret);
+                    window.getSelection().removeAllRanges();
+                    window.getSelection().addRange(range);
+                }
+            });
         }
     });
     </script>

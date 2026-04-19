@@ -823,6 +823,72 @@ footer {
     box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.25);
 }
 
+/* Manual-copy fallback (shown when the server can't persist the secret) */
+.manual-panel {
+    width: 100%;
+    padding: 16px 18px;
+    background: #fff8e1;
+    border: 3px solid #ffb74d;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.manual-panel[hidden] {
+    display: none;
+}
+
+.manual-panel h2 {
+    font-family: "Press Start 2P", cursive;
+    font-size: 0.9rem;
+    color: #c47b00;
+}
+
+.manual-panel p {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #444;
+}
+
+.manual-panel code {
+    background: #fff;
+    padding: 2px 6px;
+    border-radius: 6px;
+    border: 1px solid #e0c07a;
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+.manual-copy {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    background: #fff;
+    border: 2px dashed #e0c07a;
+    border-radius: 10px;
+    padding: 8px;
+}
+
+.manual-copy > code {
+    flex: 1;
+    border: none;
+    padding: 10px 8px;
+    word-break: break-all;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+}
+
+.manual-copy .action-btn {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+}
+
+.manual-footnote {
+    font-size: 0.85rem;
+    color: #7a5600;
+}
+
 /* Login */
 .login-section {
     width: 100%;
