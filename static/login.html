@@ -78,7 +78,11 @@
                         return;
                     }
                     localStorage.setItem("sprite_token", result.data.token);
-                    window.location.href = "/app";
+                    if (result.data.mfa_setup_required) {
+                        window.location.href = "/setup-mfa";
+                    } else {
+                        window.location.href = "/app";
+                    }
                 })
                 .catch(function () {
                     loginError.textContent = "Could not connect. Try again!";

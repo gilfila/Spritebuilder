@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprite Builder! - Set Up MFA</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Lock It Down</h1>
+            <p class="subtitle">Set up your 6-digit code for safer logins</p>
+        </header>
+
+        <section class="setup-section">
+            <ol class="setup-steps">
+                <li>
+                    Install an authenticator app on your phone
+                    (Google Authenticator, Authy, 1Password, etc.).
+                </li>
+                <li>
+                    Scan this QR code with the app:
+                    <div id="qr-wrap" class="qr-wrap">
+                        <div class="qr-loading">Loading&hellip;</div>
+                    </div>
+                    <details class="manual-entry">
+                        <summary>Can't scan? Type this key instead</summary>
+                        <code id="manual-secret" class="manual-secret"></code>
+                    </details>
+                </li>
+                <li>
+                    Enter the current 6-digit code from your app:
+                    <input
+                        type="text"
+                        id="verify-code"
+                        class="verify-code"
+                        placeholder="123456"
+                        inputmode="numeric"
+                        pattern="[0-9]*"
+                        maxlength="6"
+                        autocomplete="one-time-code"
+                    >
+                </li>
+            </ol>
+
+            <button id="verify-btn" class="generate-btn" disabled>
+                &#128274; Turn On MFA
+            </button>
+
+            <div id="setup-error" class="error-msg" hidden></div>
+        </section>
+    </div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var token = localStorage.getItem("sprite_token");
+        if (!token) {
+            window.location.href = "/";
+            return;
+        }
+
+        var qrWrap = document.getElementById("qr-wrap");
+        var manualSecret = document.getElementById("manual-secret");
+        var codeInput = document.getElementById("verify-code");
+        var verifyBtn = document.getElementById("verify-btn");
+        var errorBox = document.getElementById("setup-error");
+
+        var pendingSecret = null;
+
+        function authHeaders(extra) {
+            var h = { "Authorization": "Bearer " + token };
+            if (extra) Object.keys(extra).forEach(function (k) { h[k] = extra[k]; });
+            return h;
+        }
+
+        function showError(msg) {
+            errorBox.textContent = msg;
+            errorBox.hidden = false;
+        }
+
+        function hideError() { errorBox.hidden = true; }
+
+        fetch("/api/mfa/setup/begin", {
+            method: "POST",
+            headers: authHeaders({ "Content-Type": "application/json" })
+        })
+            .then(function (res) {
+                if (res.status === 401) {
+                    localStorage.removeItem("sprite_token");
+                    window.location.href = "/";
+                    return null;
+                }
+                return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+            })
+            .then(function (result) {
+                if (!result) return;
+                if (!result.ok) {
+                    showError(result.data.error || "Could not start setup.");
+                    return;
+                }
+                pendingSecret = result.data.secret;
+                qrWrap.innerHTML = result.data.qr_svg;
+                manualSecret.textContent = formatSecret(result.data.secret);
+            })
+            .catch(function () {
+                showError("Could not reach the server. Refresh to try again.");
+            });
+
+        codeInput.addEventListener("input", function () {
+            codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, 6);
+            verifyBtn.disabled = !(pendingSecret && codeInput.value.length === 6);
+        });
+
+        codeInput.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" && !verifyBtn.disabled) verifyBtn.click();
+        });
+
+        verifyBtn.addEventListener("click", function () {
+            if (!pendingSecret) return;
+            hideError();
+            verifyBtn.disabled = true;
+
+            fetch("/api/mfa/setup/verify", {
+                method: "POST",
+                headers: authHeaders({ "Content-Type": "application/json" }),
+                body: JSON.stringify({ secret: pendingSecret, code: codeInput.value })
+            })
+                .then(function (res) {
+                    return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+                })
+                .then(function (result) {
+                    if (!result.ok) {
+                        showError(result.data.error || "Could not verify.");
+                        verifyBtn.disabled = false;
+                        return;
+                    }
+                    window.location.href = "/app";
+                })
+                .catch(function () {
+                    showError("Could not reach the server. Try again.");
+                    verifyBtn.disabled = false;
+                });
+        });
+
+        function formatSecret(s) {
+            return s.replace(/(.{4})/g, "$1 ").trim();
+        }
+    });
+    </script>
+</body>
+</html>
