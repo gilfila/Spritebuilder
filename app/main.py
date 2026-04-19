@@ -30,19 +30,58 @@ AUTH_PASS = os.environ.get("AUTH_PASSWORD", "cheese")
 AUTH_TOKEN = hashlib.sha256(f"{AUTH_USER}:{AUTH_PASS}".encode()).hexdigest()
 
 # --- TOTP state ---
-# Resolution order for the TOTP secret:
+# Resolution order for reading the TOTP secret:
 #   1. AUTH_TOTP_SECRET env var (read-only; overrides everything)
-#   2. AUTH_STATE_PATH file contents (defaults to <project>/.auth_state.json;
-#      override on serverless hosts where the repo dir is read-only)
-# Enrollment via the web UI writes to the file. Serverless deployments can
-# promote the file-stored secret to an env var to survive cold starts.
+#   2. Vercel KV / Upstash Redis (if KV_REST_API_URL + KV_REST_API_TOKEN set)
+#   3. AUTH_STATE_PATH file contents (defaults to <project>/.auth_state.json)
+# Writes go to KV when configured, else to the file. On Vercel the repo
+# dir is read-only, so enrollment through the web UI requires a linked KV
+# store (or a pre-set AUTH_TOTP_SECRET env var).
 AUTH_STATE_PATH = Path(os.environ.get("AUTH_STATE_PATH") or (PROJECT_ROOT / ".auth_state.json"))
 _ENV_TOTP_SECRET = (os.environ.get("AUTH_TOTP_SECRET") or "").strip() or None
+_KV_KEY = "spritebuilder:totp_secret"
+_KV_URL = (os.environ.get("KV_REST_API_URL") or os.environ.get("UPSTASH_REDIS_REST_URL") or "").rstrip("/")
+_KV_TOKEN = (os.environ.get("KV_REST_API_TOKEN") or os.environ.get("UPSTASH_REDIS_REST_TOKEN") or "").strip()
+
+
+def _kv_enabled() -> bool:
+    return bool(_KV_URL and _KV_TOKEN)
+
+
+def _kv_command(*cmd: str) -> object:
+    import json as _json
+    import urllib.error
+    import urllib.request
+
+    req = urllib.request.Request(
+        _KV_URL,
+        data=_json.dumps(list(cmd)).encode(),
+        headers={
+            "Authorization": f"Bearer {_KV_TOKEN}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            body = _json.loads(resp.read() or b"{}")
+    except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+        raise RuntimeError(f"KV request failed: {exc}") from exc
+    if "error" in body:
+        raise RuntimeError(f"KV error: {body['error']}")
+    return body.get("result")
 
 
 def _load_stored_secret() -> str | None:
     if _ENV_TOTP_SECRET:
         return _ENV_TOTP_SECRET
+    if _kv_enabled():
+        try:
+            val = _kv_command("GET", _KV_KEY)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+        except RuntimeError as exc:
+            print(f"WARNING: KV read failed: {exc}", file=sys.stderr)
     try:
         data = json.loads(AUTH_STATE_PATH.read_text())
         secret = (data.get("totp_secret") or "").strip()
@@ -53,8 +92,10 @@ def _load_stored_secret() -> str | None:
 
 def _save_stored_secret(secret: str) -> None:
     if _ENV_TOTP_SECRET:
-        # Env var wins; file would be ignored. Refuse so the UI can surface it.
         raise RuntimeError("AUTH_TOTP_SECRET is set via env var; unset it to enroll via the app.")
+    if _kv_enabled():
+        _kv_command("SET", _KV_KEY, secret)
+        return
     try:
         AUTH_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
         AUTH_STATE_PATH.write_text(json.dumps({"totp_secret": secret}))
@@ -65,7 +106,9 @@ def _save_stored_secret(secret: str) -> None:
     except OSError as exc:
         raise RuntimeError(
             f"Could not persist MFA secret to {AUTH_STATE_PATH}. "
-            "On Vercel/serverless, set AUTH_TOTP_SECRET as an env var instead."
+            "On Vercel, link a KV store to the project (auto-sets "
+            "KV_REST_API_URL + KV_REST_API_TOKEN) or copy the displayed "
+            "secret into AUTH_TOTP_SECRET and redeploy."
         ) from exc
 
 
@@ -388,7 +431,15 @@ def mfa_setup_verify():
     try:
         _save_stored_secret(secret)
     except RuntimeError as exc:
-        return jsonify({"error": str(exc)}), 500
+        # Verification succeeded but the server has no writable store. Return
+        # the secret so the operator can paste it into AUTH_TOTP_SECRET and
+        # redeploy, without needing to re-scan the QR code.
+        return jsonify({
+            "ok": False,
+            "manual_required": True,
+            "secret": secret,
+            "message": str(exc),
+        }), 200
 
     return jsonify({"ok": True})
 
