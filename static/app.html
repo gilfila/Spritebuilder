@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprite Builder!</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Sprite Builder!</h1>
+            <p class="subtitle">Create your own pixel art with AI</p>
+        </header>
+
+        <main>
+            <section class="prompt-section">
+                <p class="builder-label">Build your sprite! Tap each box:</p>
+                <div class="slot-row" id="slot-row">
+                    <button class="slot" type="button" data-slot="character">
+                        <span class="slot-title">Character</span>
+                        <span class="slot-value slot-placeholder">+</span>
+                        <span class="slot-hint">(pick one)</span>
+                    </button>
+                    <button class="slot" type="button" data-slot="color">
+                        <span class="slot-title">Color</span>
+                        <span class="slot-value slot-placeholder">+</span>
+                        <span class="slot-hint">(pick one)</span>
+                    </button>
+                    <button class="slot" type="button" data-slot="style">
+                        <span class="slot-title">Style</span>
+                        <span class="slot-value slot-placeholder">+</span>
+                        <span class="slot-hint">(optional)</span>
+                    </button>
+                    <button class="slot" type="button" data-slot="vibe">
+                        <span class="slot-title">Vibe</span>
+                        <span class="slot-value slot-placeholder">+</span>
+                        <span class="slot-hint">(optional)</span>
+                    </button>
+                </div>
+
+                <button id="generate-btn" class="generate-btn" disabled>
+                    &#10024; Make My Sprite!
+                </button>
+
+                <details class="type-mode">
+                    <summary>Or type your own idea</summary>
+                    <div class="type-mode-body">
+                        <div class="input-with-mic">
+                            <input
+                                type="text"
+                                id="prompt-input"
+                                placeholder="A happy cat..."
+                                maxlength="200"
+                                autocomplete="off"
+                            >
+                            <button
+                                type="button"
+                                id="mic-btn"
+                                class="mic-btn"
+                                aria-label="Speak your idea"
+                                title="Speak your idea"
+                                hidden
+                            >&#127908;</button>
+                        </div>
+                        <p id="mic-status" class="mic-status" hidden></p>
+                        <button id="generate-text-btn" class="generate-btn generate-text-btn">
+                            &#10024; Make From My Words!
+                        </button>
+                    </div>
+                </details>
+            </section>
+
+            <div id="slot-modal" class="modal" hidden>
+                <div class="modal-backdrop" data-close></div>
+                <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+                    <div class="modal-head">
+                        <h3 id="modal-title" class="modal-title">Pick one</h3>
+                        <button type="button" class="modal-close" data-close aria-label="Close">&times;</button>
+                    </div>
+                    <div id="modal-grid" class="modal-grid"></div>
+                </div>
+            </div>
+
+            <div id="error-msg" class="error-msg" hidden></div>
+
+            <section id="loading" class="loading" hidden>
+                <div class="spinner"></div>
+                <p class="loading-text">Creating your sprite...</p>
+            </section>
+
+            <section id="result" class="result" hidden>
+                <div class="sprite-frame">
+                    <img id="sprite-img" alt="Your generated sprite" width="256" height="256">
+                </div>
+                <div class="result-actions">
+                    <button id="save-btn" class="action-btn save-btn">&#128190; Save Sprite</button>
+                    <button id="reset-btn" class="action-btn reset-btn">&#127912; Make Another!</button>
+                </div>
+
+                <section id="game-section" class="game-section">
+                    <h2 class="game-title">Play with your sprite!</h2>
+                    <p class="game-hint">Tap or press Space to fly!</p>
+                    <div class="game-wrapper">
+                        <canvas id="game-canvas" width="360" height="480"></canvas>
+                        <div id="game-overlay" class="game-overlay">
+                            <button id="play-btn" class="generate-btn play-btn">&#127918; Start Game!</button>
+                        </div>
+                    </div>
+                    <p id="score-display" class="score-display">Score: 0</p>
+                </section>
+            </section>
+
+            <section id="carousel-section" class="carousel-section" hidden>
+                <h2 class="carousel-title">Your Sprites</h2>
+                <div id="carousel" class="carousel"></div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Made for Tiger Scouts &#9889;</p>
+        </footer>
+    </div>
+
+    <script src="/script.js"></script>
+    <script src="/game.js"></script>
+</body>
+</html>

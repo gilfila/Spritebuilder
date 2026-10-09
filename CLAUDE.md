@@ -1,43 +1,86 @@
 # Spritebuilder
 
 ## Project Overview
-A web app that lets Tiger Scouts generate fun pixel art sprites using AI, teaching them the basics of working with LLMs in a playful, hands-on way.
+A web app that lets Tiger Scouts (ages 6–7) generate fun pixel art sprites using AI, teaching them the basics of working with LLMs in a playful, hands-on way.
 
-## Sprite Generation CLI
-This project uses **Replicate CLI with Retro Diffusion** for sprite generation.
-- Install: `pip install replicate`
-- Retro Diffusion models: `rd-plus` (quality), `rd-fast` (speed), `rd-animation` (animated)
-- Produces authentic grid-aligned pixel art at native sprite resolutions (e.g. 32x32, 64x64)
+## Current State
+This project is in its initial setup phase. The repository currently contains only this `CLAUDE.md` file. The application code (backend, frontend, dependencies) has not yet been implemented.
+
+## Sprite Generation
+This project uses **Replicate with Retro Diffusion** for sprite generation.
+- Python SDK: `pip install replicate`
+- Retro Diffusion models:
+  - `rd-plus` — higher quality, slower
+  - `rd-fast` — lower latency, preferred for interactive use
+  - `rd-animation` — animated sprite sheets
+- Produces grid-aligned pixel art at native sprite resolutions (32×32 or 64×64)
 - Requires `REPLICATE_API_TOKEN` environment variable
 
 ## Tech Stack
-- **Frontend**: HTML/CSS/JavaScript (simple, kid-friendly UI)
-- **Backend**: Python (Flask or FastAPI) to proxy Replicate API calls
-- **Sprite Generation**: Replicate CLI / Python SDK with Retro Diffusion models
-- **No heavy frameworks** — keep it simple and accessible
+- **Frontend**: HTML / CSS / JavaScript — simple, no build step
+- **Backend**: Python (Flask or FastAPI) — proxies Replicate API calls
+- **Sprite Generation**: Replicate Python SDK with Retro Diffusion models
+- **No heavy frameworks** — keep it simple and accessible for contributors of all levels
 
 ## Project Structure
 ```
 Spritebuilder/
-  CLAUDE.md          # This file
-  app/               # Backend (Python)
-  static/            # Frontend assets (HTML, CSS, JS)
-  requirements.txt   # Python dependencies
+├── CLAUDE.md            # AI assistant instructions (this file)
+├── .env                 # Environment variables (never committed)
+├── requirements.txt     # Python dependencies
+├── app/                 # Backend
+│   └── main.py          # Entry point — Flask/FastAPI server
+└── static/              # Frontend assets
+    ├── index.html        # Main page
+    ├── style.css         # Styles
+    └── script.js         # Client-side logic
+```
+
+## Commands
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the dev server
+python app/main.py
+
+# Environment setup — create .env with:
+# REPLICATE_API_TOKEN=<your-token>
 ```
 
 ## Development Guidelines
-- Keep the UI simple, colorful, and kid-friendly (Tiger Scouts ages 6-7)
-- All API keys must be server-side only; never expose tokens to the frontend
-- Use environment variables for secrets (REPLICATE_API_TOKEN)
-- Sprites should be small pixel art (32x32 or 64x64) for fast generation
-- Include prompt guardrails to keep generated content age-appropriate
 
-## Commands
-- `pip install -r requirements.txt` — install dependencies
-- `python app/main.py` — run the dev server
-- API keys go in `.env` (never committed)
+### Target Audience
+- Tiger Scouts, ages 6–7
+- UI must be simple, colorful, and kid-friendly
+- All generated content must be age-appropriate
+
+### Security
+- **Never expose API tokens to the frontend** — all Replicate calls go through the backend
+- Store secrets in `.env` (listed in `.gitignore`, never committed)
+- Validate and sanitize user input on the server before forwarding to Replicate
+
+### Content Safety
+- Implement server-side prompt guardrails to block inappropriate content
+- Prepend or wrap user prompts with safe framing (e.g., "a cute, friendly pixel art sprite of…")
+- Reject prompts containing violent, scary, or otherwise unsuitable terms
+
+### Performance
+- Prefer `rd-fast` model for interactive / real-time generation
+- Use `rd-plus` only when higher quality is explicitly needed
+- Target 32×32 sprites by default to minimize generation time
+
+### Code Style
+- Python: follow PEP 8; use type hints where practical
+- JavaScript: vanilla ES6+, no transpilation needed
+- HTML/CSS: semantic markup, accessible, large touch targets for young users
+- Keep files small and focused — avoid monolithic modules
+
+### Testing
+- No test framework is set up yet; when adding tests, prefer `pytest` for Python
+- Frontend tests can use simple manual QA given the audience and scope
 
 ## Key Constraints
-- No Cursor CLI — use Replicate CLI / SDK instead
-- Target audience is young children; content must be safe and fun
-- Minimize latency; prefer `rd-fast` model for interactive use
+- Do **not** use Cursor CLI — use Replicate CLI / Python SDK instead
+- Minimize external dependencies; every added package should have clear justification
+- Prioritize fast iteration and simplicity over architectural perfection
